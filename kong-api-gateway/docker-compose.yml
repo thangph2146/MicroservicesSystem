@@ -1,0 +1,90 @@
+version: '3.8'
+
+networks:
+  kong-net:
+    driver: bridge
+
+volumes:
+  kong_data:
+    driver: local
+
+services:
+  # ----------------- #
+  # PostgreSQL DB     #
+  # ----------------- #
+  kong-db:
+    image: postgres:13
+    container_name: kong-db
+    networks:
+      - kong-net
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kongpassword
+    volumes:
+      - kong_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: on-failure
+
+  # ----------------- #
+  # Kong Migrations   #
+  # ----------------- #
+  kong-migrations:
+    image: kong/kong-gateway:latest
+    container_name: kong-migrations
+    networks:
+      - kong-net
+    command: "kong migrations bootstrap"
+    depends_on:
+      - kong-db
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpassword
+    restart: on-failure
+
+  # ----------------- #
+  # Kong Gateway      #
+  # ----------------- #
+  kong-gateway:
+    image: kong/kong-gateway:latest
+    container_name: kong-gateway
+    networks:
+      - kong-net
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpassword
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    depends_on:
+      - kong-migrations
+    ports:
+      # Cổng proxy để nhận request từ client
+      - "8000:8000"
+      - "8443:8443"
+      # Cổng Admin API để quản lý Kong
+      - "8001:8001"
+      - "8444:8444"
+    restart: on-failure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  konga:
+    image: pantsel/konga
+    container_name: konga
+    networks:
+      - kong-net
+    ports:
+      - "1337:1337"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - kong-gateway
+    restart: on-failure 
