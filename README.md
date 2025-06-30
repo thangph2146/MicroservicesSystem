@@ -1,142 +1,111 @@
-# Hệ Thống SSO với KeyCloak
+# Hướng Dẫn Tích Hợp Front-end với Hệ Thống Backend
 
-Ứng dụng ASP.NET Core MVC tích hợp với KeyCloak để thực hiện Single Sign-On (SSO).
+Tài liệu này mô tả các bước cần thiết để kết nối một ứng dụng front-end với hệ thống backend quản lý trường học, bao gồm việc chạy môi trường local, xác thực người dùng qua Keycloak và tương tác với các API dữ liệu.
 
-## Tính năng
+## 1. Chạy Hệ Thống Ở Môi Trường Local
 
-- 🏠 **Landing Page**: Trang chủ giới thiệu hệ thống
-- 🔐 **KeyCloak Authentication**: Đăng nhập qua KeyCloak  
-- 📊 **Dashboard**: Bảng điều khiển hiển thị thông tin người dùng
-- 🚪 **SSO Flow**: Luồng đăng nhập một lần
+Hệ thống bao gồm nhiều dịch vụ được quản lý bởi Docker và một API riêng chạy bằng .NET.
 
-## Luồng ứng dụng
+**Bước 1: Chạy các dịch vụ hạ tầng (Nginx, Keycloak, Kong)**
 
-```
-Landing Page → KeyCloak Login → Dashboard
-```
-
-## Cài đặt
-
-1. **Clone repository:**
-   ```bash
-   git clone <repository-url>
-   cd KeyCloakSSO
-   ```
-
-2. **Restore packages:**
-   ```bash
-   dotnet restore
-   ```
-
-## Cấu hình KeyCloak
-
-### 1. Cài đặt KeyCloak
+Mở terminal và chạy lệnh sau từ thư mục gốc của dự án:
 
 ```bash
-# Sử dụng Docker
-docker run -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:latest start-dev
+docker-compose -f docker-compose.load-balancing.yml up -d
 ```
 
-### 2. Cấu hình Realm và Client
+Lệnh này sẽ khởi tạo:
+- **Nginx Load Balancer**: tại `http://localhost`
+- **Keycloak Instances**: erver quản lý định danh, truy cập qua Nginx tại `http://localhost/auth/`
+- **Kong API Gateway**: truy cập qua Nginx tại `http://localhost/`
 
-1. Truy cập KeyCloak Admin Console: `http://localhost:8080`
-2. Đăng nhập với admin/admin
-3. Tạo Realm mới (ví dụ: `my-realm`)
-4. Tạo Client:
-   - Client ID: `keycloak-sso-client`
-   - Client Type: `OpenID Connect`
-   - Valid Redirect URIs: `https://localhost:7xxx/signin-oidc`
-   - Valid Post Logout Redirect URIs: `https://localhost:7xxx/`
-   - Web Origins: `https://localhost:7xxx`
+**Bước 2: Chạy Backend API (DataManagementApi)**
 
-### 3. Cấu hình appsettings.json
+Mở một terminal khác, di chuyển vào thư mục `DataManagementApi` và chạy lệnh:
 
-Cập nhật file `appsettings.json`:
+```bash
+dotnet run --launch-profile http
+```
 
-```json
-{
-  "Keycloak": {
-    "Authority": "http://localhost:8080/realms/my-realm",
-    "ClientId": "keycloak-sso-client", 
-    "ClientSecret": "your-client-secret",
-    "RequireHttpsMetadata": false,
-    "ResponseType": "code"
+API sẽ khởi chạy và có thể truy cập tại `http://localhost:5100`. Bạn có thể xem danh sách các endpoint tại `http://localhost:5100/swagger`.
+
+## 2. Quy Trình Xác Thực (Đăng nhập / Đăng xuất)
+
+Hệ thống sử dụng Keycloak để quản lý xác thực theo chuẩn OpenID Connect (OIDC).
+
+**Thông tin cấu hình Keycloak cho Front-end:**
+- **Authority/Issuer URL**: `http://localhost/auth/realms/{ten-realm-cua-ban}`
+- **Client ID**: (Tên client ID bạn tạo trong Keycloak cho ứng dụng front-end)
+- **Redirect URI**: (URL của trang front-end mà Keycloak sẽ chuyển hướng về sau khi đăng nhập thành công, ví dụ: `http://localhost:3000/callback`)
+- **Post Logout Redirect URI**: (URL của trang front-end mà Keycloak sẽ chuyển hướng về sau khi đăng xuất, ví dụ: `http://localhost:3000/`)
+
+> **Lưu ý**: Bạn cần tạo một **Realm** và một **Client** trong Keycloak. Ví dụ, tạo realm tên `school-realm` và client tên `school-frontend`.
+
+**URL Đăng nhập:**
+Front-end không gọi trực tiếp URL đăng nhập. Thay vào đó, hãy sử dụng một thư viện OIDC (ví dụ: `oidc-client-ts` cho React/Angular/Vue) và cấu hình các thông tin trên. Thư viện sẽ tự động điều hướng người dùng đến trang đăng nhập của Keycloak. URL sẽ có dạng:
+`http://localhost/auth/realms/school-realm/protocol/openid-connect/auth?client_id=...&redirect_uri=...&response_type=code&scope=openid profile email`
+
+**URL Lấy Token:**
+Sau khi người dùng đăng nhập thành công, Keycloak sẽ chuyển hướng về `Redirect URI` của bạn với một `authorization_code`. Thư viện OIDC sẽ tự động dùng code này để gọi đến URL sau và lấy về `access_token`:
+`POST http://localhost/auth/realms/school-realm/protocol/openid-connect/token`
+
+**URL Đăng xuất:**
+Gọi hàm `logout()` từ thư viện OIDC. Thư viện sẽ điều hướng người dùng đến URL của Keycloak để kết thúc phiên làm việc.
+`http://localhost/auth/realms/school-realm/protocol/openid-connect/logout?post_logout_redirect_uri=...`
+
+## 3. Tương Tác Với API Dữ Liệu
+
+Sau khi có `access_token` từ Keycloak, bạn phải đính kèm nó vào header của mỗi yêu cầu gửi tới API backend **thông qua Kong API Gateway**.
+
+- **Base URL của API (thông qua Kong)**: `http://localhost/api`
+- **Header xác thực**: `Authorization: Bearer <access_token>`
+
+**Quan trọng**: Tất cả các đường dẫn API bây giờ sẽ bắt đầu bằng `/api`. Ví dụ, để lấy danh sách sinh viên, URL sẽ là `http://localhost/api/Students`.
+
+### Cấu hình Kong (dành cho Backend Dev)
+Để luồng này hoạt động, backend cần cấu hình Kong để tạo một *Service* trỏ đến `DataManagementApi` và một *Route* để ánh xạ các yêu cầu. Bạn có thể thực hiện việc này bằng cách gọi đến Admin API của Kong:
+
+```bash
+# 1. Tạo một Service trỏ đến DataManagementApi
+curl -i -X POST http://localhost:8001/services/ \
+  --data name=data-management-service \
+  --data url='http://host.docker.internal:5100'
+
+# 2. Tạo một Route trên Service đó, khớp với các đường dẫn bắt đầu bằng /api
+curl -i -X POST http://localhost:8001/services/data-management-service/routes \
+  --data 'paths[]=/api' \
+  --data strip_path=true
+```
+Với cấu hình `strip_path=true`, Kong sẽ tự động loại bỏ `/api` khỏi đường dẫn trước khi chuyển tiếp yêu cầu. Ví dụ: một yêu cầu đến `http://localhost/api/Students` sẽ được chuyển đến `http://host.docker.internal:5100/Students`.
+
+
+### Ví dụ gọi API từ Front-end (Đã sửa)
+
+```javascript
+// Giả sử bạn đã có accessToken sau khi đăng nhập
+const accessToken = "ey..."; 
+
+// URL đã được cập nhật để trỏ đến Kong Gateway
+fetch('http://localhost/api/AcademicYears', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
   }
-}
+})
+.then(response => response.json())
+.then(data => console.log(data))
+.catch(error => console.error('Error:', error));
 ```
 
-**Lưu ý:** Thay đổi các giá trị sau:
-- `my-realm`: Tên realm bạn đã tạo  
-- `keycloak-sso-client`: Client ID bạn đã tạo
-- `your-client-secret`: Client Secret từ KeyCloak
+**Danh sách các API endpoint cơ bản (qua Kong):**
 
-## Chạy ứng dụng
+- `GET /api/AcademicYears`
+- `GET /api/Semesters`
+- `GET /api/Departments`
+- `GET /api/Partners`
+- `GET /api/Students`
+- `GET /api/Theses`
+- `GET /api/Internships`
 
-```bash
-dotnet run
-```
-
-Hoặc sử dụng Visual Studio/VS Code để chạy project.
-
-## Cấu trúc thư mục
-
-```
-KeyCloakSSO/
-├── Controllers/
-│   └── HomeController.cs          # Controller chính
-├── Models/
-│   ├── DashboardViewModel.cs      # Model cho Dashboard
-│   └── ErrorViewModel.cs          # Model cho Error
-├── Views/
-│   ├── Home/
-│   │   ├── LandingPage.cshtml     # Trang chủ
-│   │   └── Dashboard.cshtml       # Dashboard
-│   └── Shared/
-│       └── _Layout.cshtml         # Layout chung
-├── Program.cs                     # Cấu hình ứng dụng
-├── appsettings.json              # Cấu hình KeyCloak
-└── README.md                     # Hướng dẫn
-```
-
-## Tính năng chính
-
-### Landing Page
-- Giao diện đẹp với Bootstrap 5
-- Hiển thị trạng thái đăng nhập
-- Nút đăng nhập/chuyển Dashboard
-
-### Dashboard  
-- Hiển thị thông tin người dùng
-- Thống kê trạng thái hệ thống
-- Nút đăng xuất
-- Responsive design
-
-### Authentication Flow
-- Tích hợp OpenID Connect
-- Lưu trữ token và claims
-- Xử lý đăng xuất an toàn
-
-## Lưu ý bảo mật
-
-- Trong production, bật `RequireHttpsMetadata: true`
-- Sử dụng HTTPS cho tất cả endpoint
-- Cấu hình CORS phù hợp
-- Quản lý Client Secret an toàn
-
-## Troubleshooting
-
-### Lỗi redirect_uri không hợp lệ
-- Kiểm tra Valid Redirect URIs trong KeyCloak Client
-- Đảm bảo URL khớp chính xác với ứng dụng
-
-### Lỗi kết nối KeyCloak
-- Kiểm tra KeyCloak đang chạy trên port 8080
-- Kiểm tra Authority URL trong appsettings.json
-
-### Lỗi Client Secret
-- Lấy Client Secret từ KeyCloak Admin Console
-- Cập nhật vào appsettings.json
-
-## License
-
-MIT License 
+... và các phương thức `POST`, `PUT`, `DELETE` với ID tương ứng (ví dụ: `GET /api/Students/123`). 
