@@ -91,6 +91,51 @@ namespace DataManagementApi.Controllers
         {
             try
             {
+                // Check model validation
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .Select(x => new { 
+                            Field = x.Key, 
+                            Errors = x.Value?.Errors.Select(e => e.ErrorMessage) ?? new List<string>()
+                        })
+                        .ToList();
+                    
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
+                }
+
+                // Check if email already exists
+                var existingUserByEmail = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+                
+                if (existingUserByEmail != null)
+                {
+                    return Conflict(new { message = "Email đã tồn tại trong hệ thống" });
+                }
+
+                // Check if Keycloak User ID already exists
+                var existingUserByKeycloakId = await _context.Users
+                    .FirstOrDefaultAsync(u => u.KeycloakUserId == request.KeycloakUserId);
+                
+                if (existingUserByKeycloakId != null)
+                {
+                    return Conflict(new { message = "Keycloak User ID đã tồn tại trong hệ thống" });
+                }
+
+                // Validate role IDs exist
+                if (request.RoleIds.Any())
+                {
+                    var existingRoles = await _context.Roles
+                        .Where(r => request.RoleIds.Contains(r.Id))
+                        .CountAsync();
+                    
+                    if (existingRoles != request.RoleIds.Count)
+                    {
+                        return BadRequest(new { message = "Một hoặc nhiều vai trò được chỉ định không tồn tại" });
+                    }
+                }
+
                 var user = new User
                 {
                     KeycloakUserId = request.KeycloakUserId,
@@ -144,9 +189,11 @@ namespace DataManagementApi.Controllers
 
                 return CreatedAtAction(nameof(GetUser), new { id = user.Id }, userDto);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới người dùng");
+                // Log the actual exception for debugging
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    new { message = "Lỗi khi tạo mới người dùng", details = ex.Message });
             }
         }
 
@@ -156,18 +203,57 @@ namespace DataManagementApi.Controllers
         {
             try
             {
+                // Check model validation
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .Select(x => new { 
+                            Field = x.Key, 
+                            Errors = x.Value?.Errors.Select(e => e.ErrorMessage) ?? new List<string>()
+                        })
+                        .ToList();
+                    
+                    return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
+                }
+
                 var user = await _context.Users
                     .Include(u => u.UserRoles)
                     .FirstOrDefaultAsync(u => u.Id == id);
 
                 if (user == null)
                 {
-                    return NotFound();
+                    return NotFound(new { message = "Người dùng không tồn tại" });
+                }
+
+                // Validate email if being updated
+                if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != user.Email)
+                {
+                    var existingUserWithEmail = await _context.Users
+                        .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower() && u.Id != id);
+                    
+                    if (existingUserWithEmail != null)
+                    {
+                        return Conflict(new { message = "Email đã được sử dụng bởi người dùng khác" });
+                    }
+                }
+
+                // Validate role IDs exist if being updated
+                if (request.RoleIds != null && request.RoleIds.Any())
+                {
+                    var existingRoles = await _context.Roles
+                        .Where(r => request.RoleIds.Contains(r.Id))
+                        .CountAsync();
+                    
+                    if (existingRoles != request.RoleIds.Count)
+                    {
+                        return BadRequest(new { message = "Một hoặc nhiều vai trò được chỉ định không tồn tại" });
+                    }
                 }
 
                 // Update user properties
-                if (request.Name != null) user.Name = request.Name;
-                if (request.Email != null) user.Email = request.Email;
+                if (!string.IsNullOrWhiteSpace(request.Name)) user.Name = request.Name;
+                if (!string.IsNullOrWhiteSpace(request.Email)) user.Email = request.Email;
                 if (request.AvatarUrl != null) user.AvatarUrl = request.AvatarUrl;
                 if (request.IsActive.HasValue) user.IsActive = request.IsActive.Value;
                 user.UpdatedAt = DateTime.UtcNow;
@@ -179,13 +265,16 @@ namespace DataManagementApi.Controllers
                     _context.UserRoles.RemoveRange(user.UserRoles);
                     
                     // Add new roles
-                    var newUserRoles = request.RoleIds.Select(roleId => new UserRole
+                    if (request.RoleIds.Any())
                     {
-                        UserId = id,
-                        RoleId = roleId
-                    }).ToList();
+                        var newUserRoles = request.RoleIds.Select(roleId => new UserRole
+                        {
+                            UserId = id,
+                            RoleId = roleId
+                        }).ToList();
 
-                    _context.UserRoles.AddRange(newUserRoles);
+                        _context.UserRoles.AddRange(newUserRoles);
+                    }
                 }
 
                 await _context.SaveChangesAsync();
@@ -195,16 +284,17 @@ namespace DataManagementApi.Controllers
             {
                 if (!UserExists(id))
                 {
-                    return NotFound();
+                    return NotFound(new { message = "Người dùng không tồn tại" });
                 }
                 else
                 {
                     throw;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi cập nhật dữ liệu");
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    new { message = "Lỗi cập nhật dữ liệu", details = ex.Message });
             }
         }
 
@@ -216,10 +306,19 @@ namespace DataManagementApi.Controllers
         {
             try
             {
-                var user = await _context.Users.FindAsync(id);
+                var user = await _context.Users
+                    .Include(u => u.UserRoles)
+                    .FirstOrDefaultAsync(u => u.Id == id);
+                
                 if (user == null)
                 {
-                    return NotFound();
+                    return NotFound(new { message = "Người dùng không tồn tại" });
+                }
+
+                // Remove associated user roles first
+                if (user.UserRoles.Any())
+                {
+                    _context.UserRoles.RemoveRange(user.UserRoles);
                 }
 
                 _context.Users.Remove(user);
@@ -227,9 +326,10 @@ namespace DataManagementApi.Controllers
 
                 return NoContent();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa người dùng");
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    new { message = "Lỗi khi xóa người dùng", details = ex.Message });
             }
         }
 
