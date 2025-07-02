@@ -18,11 +18,29 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Users
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
             try
             {
-                return await _context.Users.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).ToListAsync();
+                var users = await _context.Users
+                    .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                    .ToListAsync();
+
+                var userDtos = users.Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    KeycloakUserId = u.KeycloakUserId,
+                    Name = u.Name,
+                    Email = u.Email,
+                    AvatarUrl = u.AvatarUrl,
+                    IsActive = u.IsActive,
+                    CreatedAt = u.CreatedAt,
+                    UpdatedAt = u.UpdatedAt,
+                    UserRoles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+                }).ToList();
+
+                return userDtos;
             }
             catch (Exception)
             {
@@ -32,19 +50,34 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Users/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
+        public async Task<ActionResult<UserDto>> GetUser(int id)
         {
             try
             {
-                var user = await _context.Users.Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-                                               .FirstOrDefaultAsync(u => u.Id == id);
+                var user = await _context.Users
+                    .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Id == id);
 
                 if (user == null)
                 {
                     return NotFound();
                 }
 
-                return user;
+                var userDto = new UserDto
+                {
+                    Id = user.Id,
+                    KeycloakUserId = user.KeycloakUserId,
+                    Name = user.Name,
+                    Email = user.Email,
+                    AvatarUrl = user.AvatarUrl,
+                    IsActive = user.IsActive,
+                    CreatedAt = user.CreatedAt,
+                    UpdatedAt = user.UpdatedAt,
+                    UserRoles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+                };
+
+                return userDto;
             }
             catch (Exception)
             {
@@ -53,19 +86,63 @@ namespace DataManagementApi.Controllers
         }
         
         // POST: api/Users
-        // Lưu ý: Việc tạo user thường được kích hoạt "Just-in-Time" sau khi user đăng nhập lần đầu tiên qua Keycloak.
-        // Endpoint này dùng để tạo thủ công bản ghi user trong DB local, giả định KeycloakUserId đã tồn tại.
         [HttpPost]
-        public async Task<ActionResult<User>> PostUser(User user)
+        public async Task<ActionResult<UserDto>> PostUser(CreateUserRequest request)
         {
             try
             {
-                user.CreatedAt = DateTime.UtcNow;
-                user.UpdatedAt = DateTime.UtcNow;
+                var user = new User
+                {
+                    KeycloakUserId = request.KeycloakUserId,
+                    Name = request.Name,
+                    Email = request.Email,
+                    AvatarUrl = request.AvatarUrl,
+                    IsActive = request.IsActive,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+                // Add roles if provided
+                if (request.RoleIds.Any())
+                {
+                    var userRoles = request.RoleIds.Select(roleId => new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = roleId
+                    }).ToList();
+
+                    _context.UserRoles.AddRange(userRoles);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Fetch the created user with roles
+                var createdUser = await _context.Users
+                    .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Id == user.Id);
+
+                if (createdUser == null)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới người dùng");
+                }
+
+                var userDto = new UserDto
+                {
+                    Id = createdUser.Id,
+                    KeycloakUserId = createdUser.KeycloakUserId,
+                    Name = createdUser.Name,
+                    Email = createdUser.Email,
+                    AvatarUrl = createdUser.AvatarUrl,
+                    IsActive = createdUser.IsActive,
+                    CreatedAt = createdUser.CreatedAt,
+                    UpdatedAt = createdUser.UpdatedAt,
+                    UserRoles = createdUser.UserRoles.Select(ur => ur.Role.Name).ToList()
+                };
+
+                return CreatedAtAction(nameof(GetUser), new { id = user.Id }, userDto);
             }
             catch (Exception)
             {
@@ -75,19 +152,44 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Users/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, User user)
+        public async Task<IActionResult> PutUser(int id, UpdateUserRequest request)
         {
-            if (id != user.Id)
-            {
-                return BadRequest();
-            }
-            
-            user.UpdatedAt = DateTime.UtcNow;
-            _context.Entry(user).State = EntityState.Modified;
-
             try
             {
+                var user = await _context.Users
+                    .Include(u => u.UserRoles)
+                    .FirstOrDefaultAsync(u => u.Id == id);
+
+                if (user == null)
+                {
+                    return NotFound();
+                }
+
+                // Update user properties
+                if (request.Name != null) user.Name = request.Name;
+                if (request.Email != null) user.Email = request.Email;
+                if (request.AvatarUrl != null) user.AvatarUrl = request.AvatarUrl;
+                if (request.IsActive.HasValue) user.IsActive = request.IsActive.Value;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                // Update roles if provided
+                if (request.RoleIds != null)
+                {
+                    // Remove existing roles
+                    _context.UserRoles.RemoveRange(user.UserRoles);
+                    
+                    // Add new roles
+                    var newUserRoles = request.RoleIds.Select(roleId => new UserRole
+                    {
+                        UserId = id,
+                        RoleId = roleId
+                    }).ToList();
+
+                    _context.UserRoles.AddRange(newUserRoles);
+                }
+
                 await _context.SaveChangesAsync();
+                return NoContent();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -100,12 +202,10 @@ namespace DataManagementApi.Controllers
                     throw;
                 }
             }
-            catch(Exception)
+            catch (Exception)
             {
-                 return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi cập nhật dữ liệu");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi cập nhật dữ liệu");
             }
-
-            return NoContent();
         }
 
 
