@@ -99,80 +99,113 @@ namespace DataManagementApi.Controllers
         [HttpPost]
         public async Task<ActionResult<Internship>> PostInternship(CreateInternshipDto createDto)
         {
+            // Log request for debugging
+            Console.WriteLine($"Received internship creation request with: StudentId={createDto.StudentId}, PartnerId={createDto.PartnerId}, AcademicYearId={createDto.AcademicYearId}, SemesterId={createDto.SemesterId}, Grade={createDto.Grade}");
+            
             try
             {
-                // Validate model state
+                // Basic validation
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
 
-                // Debug log to check what's happening
-                Console.WriteLine($"Checking for user ID: {createDto.StudentId}");
-                
-                // Check if related entities exist - use Users instead of Students
-                var userExists = await _context.Users.AnyAsync(u => u.Id == createDto.StudentId);
-                Console.WriteLine($"User exists: {userExists}");
-                
-                if (!userExists)
+                // Check if related entities exist
+                var student = await _context.Users.FindAsync(createDto.StudentId);
+                if (student == null)
                 {
-                    return BadRequest(new { message = "Người dùng không tồn tại" });
+                    return BadRequest(new { message = $"Sinh viên với ID {createDto.StudentId} không tồn tại" });
                 }
 
-                var partnerExists = await _context.Partners.AnyAsync(p => p.Id == createDto.PartnerId);
-                if (!partnerExists)
+                var partner = await _context.Partners.FindAsync(createDto.PartnerId);
+                if (partner == null)
                 {
-                    return BadRequest(new { message = "Đối tác không tồn tại" });
+                    return BadRequest(new { message = $"Đối tác với ID {createDto.PartnerId} không tồn tại" });
                 }
 
-                var academicYearExists = await _context.AcademicYears.AnyAsync(ay => ay.Id == createDto.AcademicYearId);
-                if (!academicYearExists)
+                var academicYear = await _context.AcademicYears.FindAsync(createDto.AcademicYearId);
+                if (academicYear == null)
                 {
-                    return BadRequest(new { message = "Năm học không tồn tại" });
+                    return BadRequest(new { message = $"Năm học với ID {createDto.AcademicYearId} không tồn tại" });
                 }
 
-                var semesterExists = await _context.Semesters.AnyAsync(s => s.Id == createDto.SemesterId);
-                if (!semesterExists)
+                var semester = await _context.Semesters.FindAsync(createDto.SemesterId);
+                if (semester == null)
                 {
-                    return BadRequest(new { message = "Học kỳ không tồn tại" });
+                    return BadRequest(new { message = $"Học kỳ với ID {createDto.SemesterId} không tồn tại" });
                 }
 
                 // Check for duplicate internship
                 var existingInternship = await _context.Internships
                     .AnyAsync(i => i.StudentId == createDto.StudentId && 
-                                   i.AcademicYearId == createDto.AcademicYearId && 
-                                   i.SemesterId == createDto.SemesterId);
+                               i.AcademicYearId == createDto.AcademicYearId && 
+                               i.SemesterId == createDto.SemesterId);
                 if (existingInternship)
                 {
                     return BadRequest(new { message = "Sinh viên đã có thực tập trong năm học và học kỳ này" });
                 }
 
-                // Create the internship entity
+                // Create new internship with the provided fields
                 var internship = new Internship
                 {
                     StudentId = createDto.StudentId,
                     PartnerId = createDto.PartnerId,
                     AcademicYearId = createDto.AcademicYearId,
                     SemesterId = createDto.SemesterId,
-                    ReportUrl = createDto.ReportUrl,
-                    Grade = createDto.Grade
+                    Grade = createDto.Grade,
+                    ReportUrl = createDto.ReportUrl
                 };
 
                 _context.Internships.Add(internship);
-                await _context.SaveChangesAsync();
-
-                // Reload with includes
-                var createdInternship = await _context.Internships
-                    .Include(i => i.Student)
-                    .Include(i => i.Partner)
-                    .Include(i => i.AcademicYear)
-                    .Include(i => i.Semester)
-                    .FirstOrDefaultAsync(i => i.Id == internship.Id);
-
-                return CreatedAtAction(nameof(GetInternship), new { id = internship.Id }, createdInternship);
+                
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    
+                    // Reload the created entity with related data
+                    var createdInternship = await _context.Internships
+                        .Include(i => i.Student)
+                        .Include(i => i.Partner)
+                        .Include(i => i.AcademicYear)
+                        .Include(i => i.Semester)
+                        .FirstOrDefaultAsync(i => i.Id == internship.Id);
+                        
+                    return CreatedAtAction(nameof(GetInternship), new { id = internship.Id }, createdInternship);
+                }
+                catch (DbUpdateException dbEx)
+                {
+                    // Log detailed error information
+                    Console.Error.WriteLine($"Database error: {dbEx.Message}");
+                    if (dbEx.InnerException != null)
+                    {
+                        Console.Error.WriteLine($"Inner exception: {dbEx.InnerException.Message}");
+                        Console.Error.WriteLine($"Inner exception stack trace: {dbEx.InnerException.StackTrace}");
+                        
+                        // Return the specific database error message to help with debugging
+                        return StatusCode(StatusCodes.Status500InternalServerError, 
+                            new { message = "Lỗi cơ sở dữ liệu", details = dbEx.InnerException.Message });
+                    }
+                    
+                    return StatusCode(StatusCodes.Status500InternalServerError, 
+                        new { message = "Lỗi cơ sở dữ liệu", details = dbEx.Message });
+                }
             }
             catch (Exception ex)
             {
+                // Log the exception
+                Console.Error.WriteLine($"Exception in PostInternship: {ex.Message}");
+                Console.Error.WriteLine($"Stack trace: {ex.StackTrace}");
+                
+                // Check for inner exception and return detailed information
+                if (ex.InnerException != null)
+                {
+                    Console.Error.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                    Console.Error.WriteLine($"Inner exception stack trace: {ex.InnerException.StackTrace}");
+                    
+                    return StatusCode(StatusCodes.Status500InternalServerError, 
+                        new { message = "Lỗi khi tạo mới đợt thực tập", details = ex.InnerException.Message });
+                }
+                
                 return StatusCode(StatusCodes.Status500InternalServerError, 
                     new { message = "Lỗi khi tạo mới đợt thực tập", details = ex.Message });
             }
@@ -198,28 +231,6 @@ namespace DataManagementApi.Controllers
             catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa đợt thực tập");
-            }
-        }
-
-        // DEBUG endpoint - remove in production
-        [HttpGet("debug/user/{id}")]
-        public async Task<ActionResult> DebugUser(int id)
-        {
-            try
-            {
-                var user = await _context.Users.FindAsync(id);
-                var userExists = await _context.Users.AnyAsync(u => u.Id == id);
-                
-                return Ok(new { 
-                    userId = id,
-                    userExists = userExists,
-                    user = user,
-                    allUsers = await _context.Users.Select(u => u.Id).ToListAsync()
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { error = ex.Message });
             }
         }
 

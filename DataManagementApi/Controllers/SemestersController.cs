@@ -90,20 +90,23 @@ namespace DataManagementApi.Controllers
             try
             {
                 // Debug logging
-                Console.WriteLine($"Creating semester: {semesterDto.Name}, AcademicYearId: {semesterDto.AcademicYearId}");
+                Console.WriteLine($"Creating semester: {semesterDto?.Name}, AcademicYearId: {semesterDto?.AcademicYearId}");
                 
-                // Validate model state
-                if (!ModelState.IsValid)
+                // Validate input
+                if (semesterDto == null)
                 {
-                    Console.WriteLine("Model state is invalid");
-                    return BadRequest(ModelState);
+                    return BadRequest(new { message = "Dữ liệu học kỳ không hợp lệ" });
+                }
+                
+                if (string.IsNullOrWhiteSpace(semesterDto.Name))
+                {
+                    return BadRequest(new { message = "Tên học kỳ không được để trống" });
                 }
 
                 // Validate academic year exists
                 var academicYear = await _context.AcademicYears.FindAsync(semesterDto.AcademicYearId);
                 if (academicYear == null)
                 {
-                    Console.WriteLine($"Academic year {semesterDto.AcademicYearId} not found");
                     return BadRequest(new { message = "Năm học không tồn tại" });
                 }
 
@@ -112,7 +115,6 @@ namespace DataManagementApi.Controllers
                     .AnyAsync(s => s.Name == semesterDto.Name && s.AcademicYearId == semesterDto.AcademicYearId);
                 if (existingSemester)
                 {
-                    Console.WriteLine($"Semester {semesterDto.Name} already exists in academic year {semesterDto.AcademicYearId}");
                     return BadRequest(new { message = "Học kỳ đã tồn tại trong năm học này" });
                 }
 
@@ -125,8 +127,6 @@ namespace DataManagementApi.Controllers
                 _context.Semesters.Add(semester);
                 await _context.SaveChangesAsync();
 
-                Console.WriteLine($"Semester created with ID: {semester.Id}");
-
                 // Load the created semester with academic year
                 var createdSemester = await _context.Semesters
                     .Include(s => s.AcademicYear)
@@ -134,12 +134,17 @@ namespace DataManagementApi.Controllers
 
                 return CreatedAtAction(nameof(GetSemester), new { id = semester.Id }, createdSemester);
             }
+            catch (DbUpdateException dbEx)
+            {
+                // Log the detailed exception
+                Console.Error.WriteLine($"DB update error: {dbEx}");
+                return BadRequest(new { message = "Lỗi cơ sở dữ liệu: không thể tạo học kỳ." });
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error creating semester: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return StatusCode(StatusCodes.Status500InternalServerError, 
-                    new { message = "Lỗi khi tạo mới học kỳ", details = ex.Message });
+                // Log the detailed exception
+                Console.Error.WriteLine($"Unhandled error: {ex}");
+                return StatusCode(500, new { message = "Lỗi khi tạo mới học kỳ", details = ex.Message });
             }
         }
 
