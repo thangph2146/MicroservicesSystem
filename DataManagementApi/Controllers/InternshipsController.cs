@@ -97,18 +97,84 @@ namespace DataManagementApi.Controllers
 
         // POST: api/Internships
         [HttpPost]
-        public async Task<ActionResult<Internship>> PostInternship(Internship internship)
+        public async Task<ActionResult<Internship>> PostInternship(CreateInternshipDto createDto)
         {
             try
             {
+                // Validate model state
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                // Debug log to check what's happening
+                Console.WriteLine($"Checking for user ID: {createDto.StudentId}");
+                
+                // Check if related entities exist - use Users instead of Students
+                var userExists = await _context.Users.AnyAsync(u => u.Id == createDto.StudentId);
+                Console.WriteLine($"User exists: {userExists}");
+                
+                if (!userExists)
+                {
+                    return BadRequest(new { message = "Người dùng không tồn tại" });
+                }
+
+                var partnerExists = await _context.Partners.AnyAsync(p => p.Id == createDto.PartnerId);
+                if (!partnerExists)
+                {
+                    return BadRequest(new { message = "Đối tác không tồn tại" });
+                }
+
+                var academicYearExists = await _context.AcademicYears.AnyAsync(ay => ay.Id == createDto.AcademicYearId);
+                if (!academicYearExists)
+                {
+                    return BadRequest(new { message = "Năm học không tồn tại" });
+                }
+
+                var semesterExists = await _context.Semesters.AnyAsync(s => s.Id == createDto.SemesterId);
+                if (!semesterExists)
+                {
+                    return BadRequest(new { message = "Học kỳ không tồn tại" });
+                }
+
+                // Check for duplicate internship
+                var existingInternship = await _context.Internships
+                    .AnyAsync(i => i.StudentId == createDto.StudentId && 
+                                   i.AcademicYearId == createDto.AcademicYearId && 
+                                   i.SemesterId == createDto.SemesterId);
+                if (existingInternship)
+                {
+                    return BadRequest(new { message = "Sinh viên đã có thực tập trong năm học và học kỳ này" });
+                }
+
+                // Create the internship entity
+                var internship = new Internship
+                {
+                    StudentId = createDto.StudentId,
+                    PartnerId = createDto.PartnerId,
+                    AcademicYearId = createDto.AcademicYearId,
+                    SemesterId = createDto.SemesterId,
+                    ReportUrl = createDto.ReportUrl,
+                    Grade = createDto.Grade
+                };
+
                 _context.Internships.Add(internship);
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetInternship), new { id = internship.Id }, internship);
+                // Reload with includes
+                var createdInternship = await _context.Internships
+                    .Include(i => i.Student)
+                    .Include(i => i.Partner)
+                    .Include(i => i.AcademicYear)
+                    .Include(i => i.Semester)
+                    .FirstOrDefaultAsync(i => i.Id == internship.Id);
+
+                return CreatedAtAction(nameof(GetInternship), new { id = internship.Id }, createdInternship);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới đợt thực tập");
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    new { message = "Lỗi khi tạo mới đợt thực tập", details = ex.Message });
             }
         }
 
@@ -135,9 +201,31 @@ namespace DataManagementApi.Controllers
             }
         }
 
+        // DEBUG endpoint - remove in production
+        [HttpGet("debug/user/{id}")]
+        public async Task<ActionResult> DebugUser(int id)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(id);
+                var userExists = await _context.Users.AnyAsync(u => u.Id == id);
+                
+                return Ok(new { 
+                    userId = id,
+                    userExists = userExists,
+                    user = user,
+                    allUsers = await _context.Users.Select(u => u.Id).ToListAsync()
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
         private bool InternshipExists(int id)
         {
             return _context.Internships.Any(e => e.Id == id);
         }
     }
-} 
+}
