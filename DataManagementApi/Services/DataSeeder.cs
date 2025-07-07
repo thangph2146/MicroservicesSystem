@@ -156,10 +156,11 @@ namespace DataManagementApi.Services
                 {
                     new Menu { Name = "Người dùng", Path = "/users", Icon = "users", DisplayOrder = 2 },
                     new Menu { Name = "Vai trò", Path = "/roles", Icon = "shield", DisplayOrder = 3 },
-                    new Menu { Name = "Khóa luận", Path = "/thesis", Icon = "book-open", DisplayOrder = 4 },
-                    new Menu { Name = "Thực tập", Path = "/internship", Icon = "briefcase", DisplayOrder = 5 },
-                    new Menu { Name = "Doanh nghiệp", Path = "/partners", Icon = "building2", DisplayOrder = 6 },
-                    new Menu { Name = "Cài đặt", Path = "/settings", Icon = "settings", DisplayOrder = 8 },
+                    new Menu { Name = "Quyền", Path = "/permissions", Icon = "lock", DisplayOrder = 4 },
+                    new Menu { Name = "Khóa luận", Path = "/thesis", Icon = "book-open", DisplayOrder = 5 },
+                    new Menu { Name = "Thực tập", Path = "/internship", Icon = "briefcase", DisplayOrder = 6 },
+                    new Menu { Name = "Doanh nghiệp", Path = "/partners", Icon = "building2", DisplayOrder = 7 },
+                    new Menu { Name = "Cài đặt", Path = "/settings", Icon = "settings", DisplayOrder = 9 },
                     new Menu { Name = "Menu", Path = "/menu", Icon = "menu", DisplayOrder = 99 } // Always available for admin
                 };
 
@@ -195,7 +196,7 @@ namespace DataManagementApi.Services
                     Name = "Quản lý đào tạo", 
                     Path = "/academic", 
                     Icon = "graduation-cap", 
-                    DisplayOrder = 7,
+                    DisplayOrder = 8,
                     ParentId = null
                 };
                 
