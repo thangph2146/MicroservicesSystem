@@ -151,16 +151,67 @@ namespace DataManagementApi.Services
             // Seed Menus
             if (!await _context.Menus.AnyAsync())
             {
-                var menus = new[]
+                // Main menu items (based on existing pages)
+                var mainMenus = new[]
                 {
-                    new Menu { Name = "Dashboard", Path = "/dashboard", Icon = "dashboard" },
-                    new Menu { Name = "Theses", Path = "/theses", Icon = "book" },
-                    new Menu { Name = "Students", Path = "/students", Icon = "users" },
-                    new Menu { Name = "Partners", Path = "/partners", Icon = "building" },
-                    new Menu { Name = "Reports", Path = "/reports", Icon = "chart" }
+                    new Menu { Name = "Người dùng", Path = "/users", Icon = "users", DisplayOrder = 2 },
+                    new Menu { Name = "Vai trò", Path = "/roles", Icon = "shield", DisplayOrder = 3 },
+                    new Menu { Name = "Khóa luận", Path = "/thesis", Icon = "book-open", DisplayOrder = 4 },
+                    new Menu { Name = "Thực tập", Path = "/internship", Icon = "briefcase", DisplayOrder = 5 },
+                    new Menu { Name = "Doanh nghiệp", Path = "/partners", Icon = "building2", DisplayOrder = 6 },
+                    new Menu { Name = "Cài đặt", Path = "/settings", Icon = "settings", DisplayOrder = 8 },
+                    new Menu { Name = "Menu", Path = "/menu", Icon = "menu", DisplayOrder = 99 } // Always available for admin
                 };
 
-                await _context.Menus.AddRangeAsync(menus);
+                await _context.Menus.AddRangeAsync(mainMenus);
+                await _context.SaveChangesAsync();
+
+                // Create Dashboard parent menu with children
+                var dashboardParent = new Menu 
+                { 
+                    Name = "Tổng quan", 
+                    Path = "/dashboard", 
+                    Icon = "home", 
+                    DisplayOrder = 1,
+                    ParentId = null
+                };
+                
+                await _context.Menus.AddAsync(dashboardParent);
+                await _context.SaveChangesAsync();
+
+                // Add dashboard child menus (based on existing dashboard pages)
+                var dashboardChildMenus = new[]
+                {
+                    new Menu { Name = "Phân tích", Path = "/dashboard/analytics", Icon = "line-chart", DisplayOrder = 1, ParentId = dashboardParent.Id },
+                    new Menu { Name = "Báo cáo", Path = "/dashboard/reports", Icon = "bar-chart", DisplayOrder = 2, ParentId = dashboardParent.Id }
+                };
+
+                await _context.Menus.AddRangeAsync(dashboardChildMenus);
+                await _context.SaveChangesAsync();
+
+                // Create Academic management parent menu with children
+                var academicParent = new Menu 
+                { 
+                    Name = "Quản lý đào tạo", 
+                    Path = "/academic", 
+                    Icon = "graduation-cap", 
+                    DisplayOrder = 7,
+                    ParentId = null
+                };
+                
+                await _context.Menus.AddAsync(academicParent);
+                await _context.SaveChangesAsync();
+
+                // Add academic child menus (based on existing academic pages)
+                var academicChildMenus = new[]
+                {
+                    new Menu { Name = "Niên khóa", Path = "/academic/years", Icon = "calendar", DisplayOrder = 1, ParentId = academicParent.Id },
+                    new Menu { Name = "Học kỳ", Path = "/academic/semesters", Icon = "calendar-days", DisplayOrder = 2, ParentId = academicParent.Id },
+                    new Menu { Name = "Khoa & Chuyên ngành", Path = "/academic/departments", Icon = "building", DisplayOrder = 3, ParentId = academicParent.Id },
+                    new Menu { Name = "Sinh viên", Path = "/academic/students", Icon = "user-graduate", DisplayOrder = 4, ParentId = academicParent.Id }
+                };
+
+                await _context.Menus.AddRangeAsync(academicChildMenus);
                 await _context.SaveChangesAsync();
             }
         }
