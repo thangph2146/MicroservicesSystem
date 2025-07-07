@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KeyCloakSSO")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+554af4ad567c09a7d06b72449805e4de989c4e5a")]
 [assembly: System.Reflection.AssemblyProductAttribute("KeyCloakSSO")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KeyCloakSSO")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
