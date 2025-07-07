@@ -1,4 +1,5 @@
 using DataManagementApi.Data;
+using DataManagementApi.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +15,9 @@ var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 // Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register DataSeeder
+builder.Services.AddScoped<DataSeeder>();
 
 builder.Services.AddCors(options =>
 {
@@ -136,5 +140,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed data in development environment
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
+    await seeder.SeedAsync();
+}
 
 app.Run();

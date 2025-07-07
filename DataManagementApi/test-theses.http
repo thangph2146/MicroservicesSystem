@@ -1,0 +1,119 @@
+### Test Theses API Endpoints
+
+# Variables
+@baseUrl = http://localhost:5100/api
+
+### 1. Get all theses
+GET {{baseUrl}}/Theses
+Content-Type: application/json
+
+### 2. Create a new thesis with WORKING data (using existing IDs)
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "Test Thesis - HTTP Client Test",
+    "studentId": 3,
+    "academicYearId": 1,
+    "semesterId": 2,
+    "submissionDate": "2025-08-01"
+}
+
+### 2b. Create thesis with user's original title but working IDs
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "Thêm khóa luận mới",
+    "studentId": 3,
+    "academicYearId": 1,
+    "semesterId": 2,
+    "submissionDate": "2025-07-08"
+}
+
+### 3. Create a new thesis with invalid student ID (should fail)
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "Test Thesis - Invalid Student",
+    "studentId": 999999,
+    "academicYearId": 1,
+    "semesterId": 2,
+    "submissionDate": "2025-08-01"
+}
+
+### 4. Create a new thesis with invalid academic year ID (should fail)
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "Test Thesis - Invalid Academic Year",
+    "studentId": 3,
+    "academicYearId": 999999,
+    "semesterId": 2,
+    "submissionDate": "2025-08-01"
+}
+
+### 5. Create a new thesis with invalid semester ID (should fail)
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "Test Thesis - Invalid Semester",
+    "studentId": 3,
+    "academicYearId": 1,
+    "semesterId": 999999,
+    "submissionDate": "2025-08-01"
+}
+
+### 6. Create a new thesis with empty title (should fail)
+POST {{baseUrl}}/Theses
+Content-Type: application/json
+
+{
+    "title": "",
+    "studentId": 3,
+    "academicYearId": 1,
+    "semesterId": 2,
+    "submissionDate": "2025-08-01"
+}
+
+### 7. Get a specific thesis (replace {id} with actual ID from create response)
+GET {{baseUrl}}/Theses/1
+Content-Type: application/json
+
+### 8. Get a non-existent thesis (should return 404)
+GET {{baseUrl}}/Theses/999999
+Content-Type: application/json
+
+### 9. Update a thesis (replace {id} with actual ID)
+PUT {{baseUrl}}/Theses/1
+Content-Type: application/json
+
+{
+    "id": 1,
+    "title": "Updated Test Thesis Title",
+    "studentId": 3,
+    "academicYearId": 1,
+    "semesterId": 2,
+    "submissionDate": "2025-08-01"
+}
+
+### 10. Delete a thesis (replace {id} with actual ID)
+DELETE {{baseUrl}}/Theses/1
+Content-Type: application/json
+
+### Support endpoints for testing
+
+### Get all students
+GET {{baseUrl}}/Students
+Content-Type: application/json
+
+### Get all academic years  
+GET {{baseUrl}}/AcademicYears
+Content-Type: application/json
+
+### Get all semesters
+GET {{baseUrl}}/Semesters
+Content-Type: application/json
