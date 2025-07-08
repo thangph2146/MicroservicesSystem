@@ -1,5 +1,6 @@
 using DataManagementApi.Data;
 using DataManagementApi.Models;
+using DataManagementApi.Models.Dto;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -56,20 +57,66 @@ namespace DataManagementApi.Controllers
         // Lưu ý: Việc tạo user thường được kích hoạt "Just-in-Time" sau khi user đăng nhập lần đầu tiên qua Keycloak.
         // Endpoint này dùng để tạo thủ công bản ghi user trong DB local, giả định KeycloakUserId đã tồn tại.
         [HttpPost]
-        public async Task<ActionResult<User>> PostUser(User user)
+        public async Task<ActionResult<User>> PostUser([FromBody] CreateUserDto createUserDto)
         {
+            if (createUserDto == null || string.IsNullOrWhiteSpace(createUserDto.KeycloakUserId))
+            {
+                return BadRequest("Dữ liệu không hợp lệ.");
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                user.CreatedAt = DateTime.UtcNow;
-                user.UpdatedAt = DateTime.UtcNow;
+                if (await _context.Users.AnyAsync(u => u.KeycloakUserId == createUserDto.KeycloakUserId))
+                {
+                    return Conflict("Người dùng với KeycloakUserId này đã tồn tại.");
+                }
+
+                var user = new User
+                {
+                    KeycloakUserId = createUserDto.KeycloakUserId,
+                    Name = createUserDto.Name,
+                    Email = createUserDto.Email,
+                    IsActive = createUserDto.IsActive,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                };
+                
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
 
-                return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+                if (createUserDto.RoleIds != null && createUserDto.RoleIds.Any())
+                {
+                    foreach (var roleId in createUserDto.RoleIds)
+                    {
+                        var roleExists = await _context.Roles.AnyAsync(r => r.Id == roleId);
+                        if (roleExists)
+                        {
+                            _context.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = roleId });
+                        }
+                        else
+                        {
+                            await transaction.RollbackAsync();
+                            return BadRequest($"Vai trò với ID {roleId} không tồn tại.");
+                        }
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+
+                var createdUser = await _context.Users
+                                            .Include(u => u.UserRoles)
+                                            .ThenInclude(ur => ur.Role)
+                                            .AsNoTracking()
+                                            .FirstOrDefaultAsync(u => u.Id == user.Id);
+
+                return CreatedAtAction(nameof(GetUser), new { id = user.Id }, createdUser);
             }
             catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới người dùng");
+                await transaction.RollbackAsync();
+                return StatusCode(StatusCodes.Status500InternalServerError, "Đã xảy ra lỗi khi tạo người dùng.");
             }
         }
 
@@ -131,6 +178,47 @@ namespace DataManagementApi.Controllers
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa người dùng");
             }
+        }
+
+        // POST: api/Users/{userId}/roles
+        [HttpPost("{userId}/roles")]
+        public async Task<IActionResult> AssignRoleToUser(int userId, [FromBody] UserRoleDto userRoleDto)
+        {
+            if (userRoleDto == null)
+            {
+                return BadRequest("Dữ liệu không hợp lệ.");
+            }
+
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+            if (!userExists)
+            {
+                return NotFound($"Không tìm thấy người dùng với ID {userId}.");
+            }
+
+            var roleExists = await _context.Roles.AnyAsync(r => r.Id == userRoleDto.RoleId);
+            if (!roleExists)
+            {
+                return NotFound($"Không tìm thấy vai trò với ID {userRoleDto.RoleId}.");
+            }
+
+            var userRole = new UserRole
+            {
+                UserId = userId,
+                RoleId = userRoleDto.RoleId
+            };
+
+            var alreadyExists = await _context.UserRoles
+                .AnyAsync(ur => ur.UserId == userId && ur.RoleId == userRoleDto.RoleId);
+
+            if (alreadyExists)
+            {
+                return Conflict("Người dùng đã có vai trò này.");
+            }
+
+            _context.UserRoles.Add(userRole);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Gán vai trò thành công." });
         }
 
         private bool UserExists(int id)
