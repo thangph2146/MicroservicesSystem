@@ -129,6 +129,20 @@ namespace DataManagementApi.Data
                 .HasForeignKey(t => t.StudentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Configure Thesis to use Supervisor (Lecturer)
+            modelBuilder.Entity<Thesis>()
+                .HasOne(t => t.Supervisor)
+                .WithMany()
+                .HasForeignKey(t => t.SupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure Thesis to use Examiner (Lecturer) - optional
+            modelBuilder.Entity<Thesis>()
+                .HasOne(t => t.Examiner)
+                .WithMany()
+                .HasForeignKey(t => t.ExaminerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Lecturer: Thiết lập quan hệ với Department
             modelBuilder.Entity<Lecturer>()
                 .HasOne(l => l.Department)
