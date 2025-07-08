@@ -22,7 +22,11 @@ namespace DataManagementApi.Controllers
         {
             try
             {
-                return await _context.Permissions.ToListAsync();
+                return await _context.Permissions
+                    .Include(p => p.RolePermissions)
+                    .OrderBy(p => p.Module)
+                    .ThenBy(p => p.Name)
+                    .ToListAsync();
             }
             catch (Exception)
             {
@@ -36,7 +40,9 @@ namespace DataManagementApi.Controllers
         {
             try
             {
-                var permission = await _context.Permissions.FindAsync(id);
+                var permission = await _context.Permissions
+                    .Include(p => p.RolePermissions)
+                    .FirstOrDefaultAsync(p => p.Id == id);
 
                 if (permission == null)
                 {
@@ -53,18 +59,25 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Permissions/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutPermission(int id, Permission permission)
+        public async Task<IActionResult> PutPermission(int id, UpdatePermissionRequest request)
         {
-            if (id != permission.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(permission).State = EntityState.Modified;
-
             try
             {
+                var existingPermission = await _context.Permissions.FindAsync(id);
+                if (existingPermission == null)
+                {
+                    return NotFound();
+                }
+
+                // Cập nhật các thuộc tính
+                existingPermission.Name = request.Name;
+                existingPermission.Description = request.Description;
+                existingPermission.Module = request.Module;
+
+                _context.Entry(existingPermission).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
+
+                return NoContent();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -81,16 +94,21 @@ namespace DataManagementApi.Controllers
             {
                  return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi cập nhật dữ liệu");
             }
-
-            return NoContent();
         }
 
         // POST: api/Permissions
         [HttpPost]
-        public async Task<ActionResult<Permission>> PostPermission(Permission permission)
+        public async Task<ActionResult<Permission>> PostPermission(CreatePermissionRequest request)
         {
             try
             {
+                var permission = new Permission
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Module = request.Module
+                };
+
                 _context.Permissions.Add(permission);
                 await _context.SaveChangesAsync();
 
@@ -98,7 +116,7 @@ namespace DataManagementApi.Controllers
             }
             catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới quyền");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới permission");
             }
         }
 
@@ -114,6 +132,12 @@ namespace DataManagementApi.Controllers
                     return NotFound();
                 }
 
+                // Kiểm tra xem permission có đang được sử dụng bởi role nào không
+                if (await _context.RolePermissions.AnyAsync(rp => rp.PermissionId == id))
+                {
+                    return BadRequest("Không thể xóa permission này vì nó đang được sử dụng bởi một số role.");
+                }
+
                 _context.Permissions.Remove(permission);
                 await _context.SaveChangesAsync();
 
@@ -121,7 +145,43 @@ namespace DataManagementApi.Controllers
             }
             catch(Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa quyền");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa permission");
+            }
+        }
+
+        // GET: api/Permissions/by-module/{module}
+        [HttpGet("by-module/{module}")]
+        public async Task<ActionResult<IEnumerable<Permission>>> GetPermissionsByModule(string module)
+        {
+            try
+            {
+                return await _context.Permissions
+                    .Where(p => p.Module == module)
+                    .Include(p => p.RolePermissions)
+                    .OrderBy(p => p.Name)
+                    .ToListAsync();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu");
+            }
+        }
+
+        // GET: api/Permissions/modules
+        [HttpGet("modules")]
+        public async Task<ActionResult<IEnumerable<string>>> GetModules()
+        {
+            try
+            {
+                return await _context.Permissions
+                    .Select(p => p.Module)
+                    .Distinct()
+                    .OrderBy(m => m)
+                    .ToListAsync();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu");
             }
         }
 
