@@ -21,16 +21,14 @@ builder.Services.AddScoped<DataSeeder>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: MyAllowSpecificOrigins,
-                      policy =>
-                      {
-                          policy.WithOrigins("http://localhost:3000", "http://localhost:5500", "https://localhost:5500")
-                                .AllowAnyHeader()
-                                .AllowAnyMethod()
-                                .AllowCredentials()
-                                .SetIsOriginAllowed(origin => true) // Allow any origin in development
-                                .WithExposedHeaders("*");
-                      });
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder
+                .AllowAnyOrigin()
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+        });
 });
 
 builder.Services.AddControllers()
@@ -128,7 +126,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // CORS phải được đặt trước Authentication và Authorization
-app.UseCors(MyAllowSpecificOrigins);
+app.UseCors("AllowAll");
 
 // Tạm thời tắt HTTPS redirection cho development để tránh conflict với CORS
 if (!app.Environment.IsDevelopment())
