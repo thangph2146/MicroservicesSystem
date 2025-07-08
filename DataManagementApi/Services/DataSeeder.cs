@@ -206,7 +206,7 @@ namespace DataManagementApi.Services
                 // Add academic child menus (based on existing academic pages)
                 var academicChildMenus = new[]
                 {
-                    new Menu { Name = "Niên khóa", Path = "/academic/years", Icon = "calendar", DisplayOrder = 1, ParentId = academicParent.Id },
+                    new Menu { Name = "Năm học", Path = "/academic/years", Icon = "calendar", DisplayOrder = 1, ParentId = academicParent.Id },
                     new Menu { Name = "Học kỳ", Path = "/academic/semesters", Icon = "calendar-days", DisplayOrder = 2, ParentId = academicParent.Id },
                     new Menu { Name = "Khoa & Chuyên ngành", Path = "/academic/departments", Icon = "building", DisplayOrder = 3, ParentId = academicParent.Id },
                     new Menu { Name = "Sinh viên", Path = "/academic/students", Icon = "user-graduate", DisplayOrder = 4, ParentId = academicParent.Id }

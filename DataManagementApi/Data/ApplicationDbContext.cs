@@ -15,6 +15,7 @@ namespace DataManagementApi.Data
         public DbSet<Semester> Semesters { get; set; }
         public DbSet<Department> Departments { get; set; }
         public DbSet<Thesis> Theses { get; set; }
+        public DbSet<Lecturer> Lecturers { get; set; }
         
         // --- Models cho User, Role, Permission ---
         public DbSet<Role> Roles { get; set; }
@@ -126,6 +127,13 @@ namespace DataManagementApi.Data
                 .HasOne(t => t.Student)
                 .WithMany()
                 .HasForeignKey(t => t.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Lecturer: Thiết lập quan hệ với Department
+            modelBuilder.Entity<Lecturer>()
+                .HasOne(l => l.Department)
+                .WithMany()
+                .HasForeignKey(l => l.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
