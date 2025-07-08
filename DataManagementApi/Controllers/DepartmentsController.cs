@@ -34,6 +34,23 @@ namespace DataManagementApi.Controllers
             }
         }
 
+        // GET: api/Departments/all
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<Department>>> GetAllDepartments()
+        {
+            try
+            {
+                // Lấy tất cả departments dạng flat list
+                return await _context.Departments
+                    .OrderBy(d => d.Name)
+                    .ToListAsync();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
+            }
+        }
+
         // GET: api/Departments/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Department>> GetDepartment(int id)
@@ -145,4 +162,4 @@ namespace DataManagementApi.Controllers
             return _context.Departments.Any(e => e.Id == id);
         }
     }
-} 
+}
