@@ -22,10 +22,28 @@ namespace DataManagementApi.Controllers
         {
             try
             {
-                // Chỉ lấy các menu gốc (không có cha) và load các menu con
+                // Chỉ lấy các menu gốc (không có cha) và load các menu con theo thứ tự
                 return await _context.Menus
                     .Where(m => m.ParentId == null)
-                    .Include(m => m.ChildMenus)
+                    .Include(m => m.ChildMenus!.OrderBy(c => c.DisplayOrder))
+                    .OrderBy(m => m.DisplayOrder)
+                    .ToListAsync();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu");
+            }
+        }
+
+        // GET: api/Menus/flat
+        [HttpGet("flat")]
+        public async Task<ActionResult<IEnumerable<Menu>>> GetMenusFlat()
+        {
+            try
+            {
+                // Lấy tất cả menu (cả menu gốc và con) theo thứ tự
+                return await _context.Menus
+                    .Include(m => m.ChildMenus!)
                     .OrderBy(m => m.DisplayOrder)
                     .ToListAsync();
             }
@@ -143,4 +161,4 @@ namespace DataManagementApi.Controllers
             return _context.Menus.Any(e => e.Id == id);
         }
     }
-} 
+}

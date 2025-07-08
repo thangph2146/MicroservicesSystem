@@ -41,7 +41,7 @@ namespace DataManagementApi.Controllers
 
                 if (academicYear == null)
                 {
-                    return NotFound();
+                    return NotFound("Không tìm thấy năm học");
                 }
 
                 return academicYear;
@@ -58,20 +58,38 @@ namespace DataManagementApi.Controllers
         {
             if (id != academicYear.Id)
             {
-                return BadRequest();
+                return BadRequest("ID không khớp");
             }
-
-            _context.Entry(academicYear).State = EntityState.Modified;
 
             try
             {
+                // Validation
+                if (string.IsNullOrWhiteSpace(academicYear.Name))
+                {
+                    return BadRequest("Tên niên khóa không được để trống");
+                }
+
+                if (academicYear.StartDate >= academicYear.EndDate)
+                {
+                    return BadRequest("Ngày bắt đầu phải trước ngày kết thúc");
+                }
+
+                // Check if academic year name already exists (excluding current record)
+                var existingYear = await _context.AcademicYears
+                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name && y.Id != id);
+                if (existingYear != null)
+                {
+                    return BadRequest("Tên niên khóa đã tồn tại");
+                }
+
+                _context.Entry(academicYear).State = EntityState.Modified;
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
                 if (!AcademicYearExists(id))
                 {
-                    return NotFound();
+                    return NotFound("Không tìm thấy năm học");
                 }
                 else
                 {
@@ -92,6 +110,25 @@ namespace DataManagementApi.Controllers
         {
             try
             {
+                // Validation
+                if (string.IsNullOrWhiteSpace(academicYear.Name))
+                {
+                    return BadRequest("Tên niên khóa không được để trống");
+                }
+
+                if (academicYear.StartDate >= academicYear.EndDate)
+                {
+                    return BadRequest("Ngày bắt đầu phải trước ngày kết thúc");
+                }
+
+                // Check if academic year name already exists
+                var existingYear = await _context.AcademicYears
+                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name);
+                if (existingYear != null)
+                {
+                    return BadRequest("Tên niên khóa đã tồn tại");
+                }
+
                 _context.AcademicYears.Add(academicYear);
                 await _context.SaveChangesAsync();
 
@@ -112,7 +149,7 @@ namespace DataManagementApi.Controllers
                 var academicYear = await _context.AcademicYears.FindAsync(id);
                 if (academicYear == null)
                 {
-                    return NotFound();
+                    return NotFound("Không tìm thấy năm học");
                 }
 
                 _context.AcademicYears.Remove(academicYear);

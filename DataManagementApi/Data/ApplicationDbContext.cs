@@ -5,20 +5,18 @@ namespace DataManagementApi.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
-        {
-        }
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
+        public DbSet<User> Users { get; set; }
+        public DbSet<Student> Students { get; set; }
+        public DbSet<Internship> Internships { get; set; }
+        public DbSet<Partner> Partners { get; set; }
         public DbSet<AcademicYear> AcademicYears { get; set; }
         public DbSet<Semester> Semesters { get; set; }
         public DbSet<Department> Departments { get; set; }
-        public DbSet<Partner> Partners { get; set; }
-        public DbSet<Student> Students { get; set; }
         public DbSet<Thesis> Theses { get; set; }
-        public DbSet<Internship> Internships { get; set; }
         
         // --- Models cho User, Role, Permission ---
-        public DbSet<User> Users { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<Permission> Permissions { get; set; }
         public DbSet<Menu> Menus { get; set; }
@@ -115,6 +113,20 @@ namespace DataManagementApi.Data
                 .WithMany() // Không có collection tương ứng trong Semester
                 .HasForeignKey(t => t.SemesterId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure Internship to use User instead of Student
+            modelBuilder.Entity<Internship>()
+                .HasOne(i => i.Student)
+                .WithMany()
+                .HasForeignKey(i => i.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure Thesis to use Student
+            modelBuilder.Entity<Thesis>()
+                .HasOne(t => t.Student)
+                .WithMany()
+                .HasForeignKey(t => t.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
-} 
+}
