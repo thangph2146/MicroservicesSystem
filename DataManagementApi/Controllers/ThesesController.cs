@@ -18,16 +18,36 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Theses
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ThesisDto>>> GetTheses()
+        public async Task<ActionResult<object>> GetTheses(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10,
+            [FromQuery] string search = ""
+        )
         {
             try
             {
-                var theses = await _context.Theses
+                var query = _context.Theses
                     .Include(t => t.Student)
                     .Include(t => t.Supervisor)
                     .Include(t => t.Examiner)
                     .Include(t => t.AcademicYear)
                     .Include(t => t.Semester)
+                    .AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    query = query.Where(t =>
+                        t.Title.Contains(search) ||
+                        (t.Student != null && t.Student.FullName.Contains(search)) ||
+                        (t.Supervisor != null && t.Supervisor.Name.Contains(search))
+                    );
+                }
+
+                var total = await query.CountAsync();
+                var theses = await query
+                    .OrderByDescending(t => t.CreatedAt)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
                     .Select(t => new ThesisDto
                     {
                         Id = t.Id,
@@ -53,7 +73,7 @@ namespace DataManagementApi.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(theses);
+                return Ok(new { data = theses, total });
             }
             catch (Exception)
             {
@@ -308,4 +328,4 @@ namespace DataManagementApi.Controllers
             return _context.Theses.Any(e => e.Id == id);
         }
     }
-} 
+}
