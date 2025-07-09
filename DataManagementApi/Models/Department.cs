@@ -11,5 +11,7 @@ namespace DataManagementApi.Models
         public Department? ParentDepartment { get; set; }
         
         public ICollection<Department> ChildDepartments { get; set; } = new List<Department>();
+
+        public DateTime? DeletedAt { get; set; }
     }
-} 
+}

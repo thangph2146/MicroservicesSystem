@@ -14,5 +14,7 @@ namespace DataManagementApi.Models
         public ICollection<Menu> ChildMenus { get; set; } = new List<Menu>();
         
         public ICollection<RoleMenu> RoleMenus { get; set; } = new List<RoleMenu>();
+
+        public DateTime? DeletedAt { get; set; }
     }
-} 
+}
