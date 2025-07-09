@@ -21,7 +21,8 @@ namespace DataManagementApi.Controllers
         public async Task<ActionResult<object>> GetTheses(
             [FromQuery] int page = 1,
             [FromQuery] int limit = 10,
-            [FromQuery] string search = ""
+            [FromQuery] string search = "",
+            [FromQuery] DateTime? submissionDate = null
         )
         {
             try
@@ -41,6 +42,13 @@ namespace DataManagementApi.Controllers
                         (t.Student != null && t.Student.FullName.Contains(search)) ||
                         (t.Supervisor != null && t.Supervisor.Name.Contains(search))
                     );
+                }
+
+                if (submissionDate.HasValue)
+                {
+                    // Filter by date only (ignore time)
+                    var date = submissionDate.Value.Date;
+                    query = query.Where(t => t.SubmissionDate.Date == date);
                 }
 
                 var total = await query.CountAsync();
