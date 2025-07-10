@@ -89,5 +89,95 @@ namespace DataManagementApi.Controllers
                 .ToListAsync();
             return Ok(lecturers);
         }
+
+        [HttpGet("departments")]
+        public async Task<IActionResult> GetDepartmentOptions([FromQuery] string? search)
+        {
+            var query = _context.Departments.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(d => d.Name.ToLower().Contains(search.ToLower()) || d.Code.ToLower().Contains(search.ToLower()));
+            }
+
+            var departments = await query
+                .Select(d => new { d.Id, Name = $"{d.Name} ({d.Code})" })
+                .Take(100)
+                .ToListAsync();
+
+            return Ok(departments);
+        }
+
+        [HttpGet("partners")]
+        public async Task<IActionResult> GetPartnerOptions([FromQuery] string? search)
+        {
+            var query = _context.Partners.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+            }
+
+            var partners = await query
+                .Select(p => new { p.Id, p.Name })
+                .Take(100)
+                .ToListAsync();
+
+            return Ok(partners);
+        }
+
+        [HttpGet("menus")]
+        public async Task<IActionResult> GetMenuOptions([FromQuery] string? search)
+        {
+            var query = _context.Menus.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(m => m.Name.ToLower().Contains(search.ToLower()));
+            }
+
+            var menus = await query
+                .Select(m => new { Id = m.Id, Name = m.Name })
+                .Take(100)
+                .ToListAsync();
+
+            return Ok(menus);
+        }
+
+        [HttpGet("permissions")]
+        public async Task<IActionResult> GetPermissionOptions([FromQuery] string? search)
+        {
+            var query = _context.Permissions.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()) || p.Module.ToLower().Contains(search.ToLower()));
+            }
+
+            var permissions = await query
+                .Select(p => new { Id = p.Id, Name = p.Module + "." + p.Name })
+                .Take(100)
+                .ToListAsync();
+
+            return Ok(permissions);
+        }
+
+        [HttpGet("roles")]
+        public async Task<IActionResult> GetRoleOptions([FromQuery] string? search)
+        {
+            var query = _context.Roles.AsQueryable().Where(r => r.DeletedAt == null);
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(r => r.Name.ToLower().Contains(search.ToLower()));
+            }
+
+            var roles = await query
+                .Select(r => new { r.Id, r.Name })
+                .Take(100)
+                .ToListAsync();
+
+            return Ok(roles);
+        }
     }
 } 
