@@ -84,7 +84,7 @@ namespace DataManagementApi.Controllers
         }
 
         // GET: api/Departments/5
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<Department>> GetDepartment(int id)
         {
             try

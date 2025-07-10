@@ -24,20 +24,21 @@ namespace DataManagementApi.Controllers
             {
                 return await _context.AcademicYears.ToListAsync();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // Log the exception
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi truy xuất dữ liệu từ cơ sở dữ liệu: {ex.Message}");
             }
         }
 
         // GET: api/AcademicYears/5
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<AcademicYear>> GetAcademicYear(int id)
         {
             try
             {
-                var academicYear = await _context.AcademicYears.FindAsync(id);
+                var academicYear = await _context.AcademicYears
+                    .FirstOrDefaultAsync(ay => ay.Id == id && ay.DeletedAt == null);
 
                 if (academicYear == null)
                 {
@@ -46,9 +47,9 @@ namespace DataManagementApi.Controllers
 
                 return academicYear;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi truy xuất dữ liệu từ cơ sở dữ liệu: {ex.Message}");
             }
         }
 
@@ -76,7 +77,7 @@ namespace DataManagementApi.Controllers
 
                 // Check if academic year name already exists (excluding current record)
                 var existingYear = await _context.AcademicYears
-                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name && y.Id != id);
+                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name && y.Id != id && y.DeletedAt == null);
                 if (existingYear != null)
                 {
                     return BadRequest("Tên niên khóa đã tồn tại");
@@ -96,9 +97,9 @@ namespace DataManagementApi.Controllers
                     throw;
                 }
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                 return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi cập nhật dữ liệu");
+                 return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi cập nhật dữ liệu: {ex.Message}");
             }
 
             return NoContent();
@@ -123,7 +124,7 @@ namespace DataManagementApi.Controllers
 
                 // Check if academic year name already exists
                 var existingYear = await _context.AcademicYears
-                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name);
+                    .FirstOrDefaultAsync(y => y.Name == academicYear.Name && y.DeletedAt == null);
                 if (existingYear != null)
                 {
                     return BadRequest("Tên niên khóa đã tồn tại");
@@ -134,15 +135,15 @@ namespace DataManagementApi.Controllers
 
                 return CreatedAtAction(nameof(GetAcademicYear), new { id = academicYear.Id }, academicYear);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi tạo mới năm học");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi tạo mới năm học: {ex.Message}");
             }
         }
 
-        // DELETE: api/AcademicYears/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAcademicYear(int id)
+        // SOFT DELETE: api/AcademicYears/soft-delete/5
+        [HttpPost("soft-delete/{id:int}")]
+        public async Task<IActionResult> SoftDeleteAcademicYear(int id)
         {
             try
             {
@@ -151,21 +152,186 @@ namespace DataManagementApi.Controllers
                 {
                     return NotFound("Không tìm thấy năm học");
                 }
-
-                _context.AcademicYears.Remove(academicYear);
+                if (academicYear.DeletedAt != null)
+                {
+                    return BadRequest("Năm học đã bị xóa.");
+                }
+                academicYear.DeletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
-
                 return NoContent();
             }
-            catch(Exception)
+            catch(Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa năm học");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa năm học: {ex.Message}");
+            }
+        }
+
+        // GET: api/AcademicYears/list
+        [HttpGet("list")]
+        public async Task<ActionResult<object>> GetAcademicYearList(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10, 
+            [FromQuery] string search = "")
+        {
+            try
+            {
+                var query = _context.AcademicYears.Where(ay => ay.DeletedAt == null);
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(y => y.Name.Contains(search));
+                }
+
+                var totalCount = await query.CountAsync();
+
+                var years = await query
+                    .OrderBy(y => y.Id)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    data = years,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi truy xuất dữ liệu từ cơ sở dữ liệu: {ex.Message}");
+            }
+        }
+        
+        // GET: api/AcademicYears/deleted
+        [HttpGet("deleted")]
+        public async Task<ActionResult<object>> GetDeletedAcademicYears([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            try
+            {
+                var query = _context.AcademicYears.Where(ay => ay.DeletedAt != null);
+
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(y => y.Name.Contains(search));
+                }
+
+                var totalCount = await query.CountAsync();
+
+                var years = await query
+                    .OrderBy(y => y.Id)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    data = years,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi truy xuất dữ liệu từ cơ sở dữ liệu: {ex.Message}");
+            }
+        }
+
+        // BULK SOFT DELETE: api/AcademicYears/bulk-soft-delete
+        [HttpPost("bulk-soft-delete")]
+        public async Task<IActionResult> BulkSoftDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var years = await _context.AcademicYears.Where(d => ids.Contains(d.Id) && d.DeletedAt == null).ToListAsync();
+                if (years.Count == 0)
+                    return NotFound("Không tìm thấy năm học nào để xóa.");
+                foreach (var year in years)
+                {
+                    year.DeletedAt = DateTime.UtcNow;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { softDeleted = years.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa nhiều năm học: {ex.Message}");
+            }
+        }
+
+        // PERMANENT DELETE: api/AcademicYears/permanent-delete/5
+        [HttpDelete("permanent-delete/{id:int}")]
+        public async Task<IActionResult> PermanentDeleteAcademicYear(int id)
+        {
+            try
+            {
+                var year = await _context.AcademicYears.FindAsync(id);
+                if (year == null)
+                {
+                    return NotFound();
+                }
+                _context.AcademicYears.Remove(year);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa vĩnh viễn năm học: {ex.Message}");
+            }
+        }
+
+        // BULK PERMANENT DELETE: api/AcademicYears/bulk-permanent-delete
+        [HttpPost("bulk-permanent-delete")]
+        public async Task<IActionResult> BulkPermanentDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var years = await _context.AcademicYears.Where(d => ids.Contains(d.Id)).ToListAsync();
+                if (years.Count == 0)
+                    return NotFound("Không tìm thấy năm học nào để xóa vĩnh viễn.");
+                _context.AcademicYears.RemoveRange(years);
+                await _context.SaveChangesAsync();
+                return Ok(new { permanentlyDeleted = years.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa vĩnh viễn nhiều năm học: {ex.Message}");
+            }
+        }
+
+        // BULK RESTORE: api/AcademicYears/bulk-restore
+        [HttpPost("bulk-restore")]
+        public async Task<IActionResult> BulkRestore([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var years = await _context.AcademicYears.Where(d => ids.Contains(d.Id) && d.DeletedAt != null).ToListAsync();
+                if (years.Count == 0)
+                    return NotFound("Không tìm thấy năm học nào để khôi phục.");
+                foreach (var year in years)
+                {
+                    year.DeletedAt = null;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { restored = years.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi khôi phục nhiều năm học: {ex.Message}");
             }
         }
 
         private bool AcademicYearExists(int id)
         {
-            return _context.AcademicYears.Any(e => e.Id == id);
+            return _context.AcademicYears.Any(e => e.Id == id && e.DeletedAt == null);
         }
     }
 } 
