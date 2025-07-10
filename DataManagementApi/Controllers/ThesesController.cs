@@ -28,6 +28,7 @@ namespace DataManagementApi.Controllers
             try
             {
                 var query = _context.Theses
+                    .Where(t => t.DeletedAt == null) // Filter out soft-deleted
                     .Include(t => t.Student)
                     .Include(t => t.Supervisor)
                     .Include(t => t.Examiner)
@@ -96,12 +97,12 @@ namespace DataManagementApi.Controllers
             try
             {
                 var thesis = await _context.Theses
+                    .Where(t => t.Id == id && t.DeletedAt == null) // Check for soft-delete
                     .Include(t => t.Student)
                     .Include(t => t.Supervisor)
                     .Include(t => t.Examiner)
                     .Include(t => t.AcademicYear)
                     .Include(t => t.Semester)
-                    .Where(t => t.Id == id)
                     .Select(t => new ThesisDto
                     {
                         Id = t.Id,
@@ -308,7 +309,174 @@ namespace DataManagementApi.Controllers
             }
         }
 
-        // DELETE: api/Theses/5
+        // SOFT DELETE: api/Theses/soft-delete/5
+        [HttpPost("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeleteThesis(int id)
+        {
+            try
+            {
+                var thesis = await _context.Theses.FindAsync(id);
+                if (thesis == null)
+                {
+                    return NotFound();
+                }
+                thesis.DeletedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa mềm khóa luận");
+            }
+        }
+
+        // PERMANENT DELETE: api/Theses/permanent-delete/5
+        [HttpDelete("permanent-delete/{id}")]
+        public async Task<IActionResult> PermanentDeleteThesis(int id)
+        {
+            try
+            {
+                var thesis = await _context.Theses.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+                if (thesis == null)
+                {
+                    return NotFound();
+                }
+                _context.Theses.Remove(thesis);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa vĩnh viễn khóa luận");
+            }
+        }
+
+        // RESTORE: api/Theses/restore/5
+        [HttpPost("restore/{id}")]
+        public async Task<IActionResult> RestoreThesis(int id)
+        {
+            try
+            {
+                var thesis = await _context.Theses.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+                if (thesis == null)
+                {
+                    return NotFound();
+                }
+                thesis.DeletedAt = null;
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi khôi phục khóa luận");
+            }
+        }
+
+        // GET DELETED: api/Theses/deleted
+        [HttpGet("deleted")]
+        public async Task<ActionResult<object>> GetDeletedTheses([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            try
+            {
+                IQueryable<Thesis> query = _context.Theses
+                    .Where(t => t.DeletedAt != null)
+                    .Include(t => t.Student)
+                    .Include(t => t.Supervisor);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                     query = query.Where(t =>
+                        t.Title.Contains(search) ||
+                        (t.Student != null && t.Student.FullName.Contains(search))
+                    );
+                }
+
+                var total = await query.CountAsync();
+                var theses = await query
+                    .OrderByDescending(t => t.DeletedAt)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .Select(t => new ThesisDto {
+                        Id = t.Id,
+                        Title = t.Title,
+                        StudentName = t.Student != null ? t.Student.FullName : null,
+                        SupervisorName = t.Supervisor != null ? t.Supervisor.Name : null,
+                        Status = t.Status,
+                        DeletedAt = t.DeletedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(new { data = theses, total });
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi lấy danh sách khóa luận đã xóa");
+            }
+        }
+
+        // BULK SOFT DELETE
+        [HttpPost("bulk-soft-delete")]
+        public async Task<IActionResult> BulkSoftDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+            try
+            {
+                var theses = await _context.Theses.Where(t => ids.Contains(t.Id)).ToListAsync();
+                foreach (var thesis in theses)
+                {
+                    thesis.DeletedAt = DateTime.UtcNow;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { softDeleted = theses.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi khi xóa mềm nhiều khóa luận: {ex.Message}");
+            }
+        }
+
+        // BULK RESTORE
+        [HttpPost("bulk-restore")]
+        public async Task<IActionResult> BulkRestore([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+            try
+            {
+                var theses = await _context.Theses.IgnoreQueryFilters().Where(t => ids.Contains(t.Id)).ToListAsync();
+                foreach (var thesis in theses)
+                {
+                    thesis.DeletedAt = null;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { restored = theses.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi khi khôi phục nhiều khóa luận: {ex.Message}");
+            }
+        }
+        
+        // BULK PERMANENT DELETE
+        [HttpPost("bulk-permanent-delete")]
+        public async Task<IActionResult> BulkPermanentDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+            try
+            {
+                var theses = await _context.Theses.IgnoreQueryFilters().Where(t => ids.Contains(t.Id)).ToListAsync();
+                _context.Theses.RemoveRange(theses);
+                await _context.SaveChangesAsync();
+                return Ok(new { permanentlyDeleted = theses.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi khi xóa vĩnh viễn nhiều khóa luận: {ex.Message}");
+            }
+        }
+
+        // DELETE: api/Theses/5 (This is now replaced by soft-delete and permanent-delete)
+        // I'll comment it out to avoid confusion, but it could be removed entirely.
+        /*
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteThesis(int id)
         {
@@ -330,10 +498,11 @@ namespace DataManagementApi.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa khóa luận");
             }
         }
+        */
 
         private bool ThesisExists(int id)
         {
-            return _context.Theses.Any(e => e.Id == id);
+            return _context.Theses.Any(e => e.Id == id && e.DeletedAt == null);
         }
     }
 }
