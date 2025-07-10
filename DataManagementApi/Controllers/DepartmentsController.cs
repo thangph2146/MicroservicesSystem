@@ -18,16 +18,30 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Departments
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Department>>> GetDepartments()
+        public async Task<ActionResult<object>> GetDepartments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
             try
             {
-                var departments = await _context.Departments
+                IQueryable<Department> query = _context.Departments
                     .Where(d => d.ParentDepartmentId == null && d.DeletedAt == null)
-                    .Include(d => d.ChildDepartments)
+                    .Include(d => d.ChildDepartments);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination - but for tree structure, we might want to return all for now
+                // since pagination with tree structure is complex
+                var departments = await query
+                    .OrderBy(d => d.Name)
                     .ToListAsync();
 
-                // Lọc childDepartments chỉ lấy những cái chưa bị xóa
+                // Filter child departments to exclude deleted ones
                 foreach (var dept in departments)
                 {
                     if (dept.ChildDepartments != null)
@@ -35,7 +49,15 @@ namespace DataManagementApi.Controllers
                         dept.ChildDepartments = dept.ChildDepartments.Where(cd => cd.DeletedAt == null).ToList();
                     }
                 }
-                return departments;
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
             }
             catch (Exception)
             {
@@ -253,15 +275,37 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Departments/list
         [HttpGet("list")]
-        public async Task<ActionResult<IEnumerable<Department>>> GetDepartmentList()
+        public async Task<ActionResult<object>> GetDepartmentList([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
             try
             {
-                // Lấy tất cả departments chưa xóa (nếu có soft delete thì lọc IsDeleted = false)
-                return await _context.Departments
-                    .Where(d => d.DeletedAt == null)
+                var query = _context.Departments
+                    .Where(d => d.DeletedAt == null);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination
+                var departments = await query
                     .OrderBy(d => d.Name)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
                     .ToListAsync();
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
             }
             catch (Exception)
             {
@@ -271,15 +315,37 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Departments/deleted
         [HttpGet("deleted")]
-        public async Task<ActionResult<IEnumerable<Department>>> GetDeletedDepartments()
+        public async Task<ActionResult<object>> GetDeletedDepartments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
             try
             {
-                var deleted = await _context.Departments
-                    .Where(d => d.DeletedAt != null)
+                var query = _context.Departments
+                    .Where(d => d.DeletedAt != null);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination
+                var departments = await query
                     .OrderBy(d => d.Name)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
                     .ToListAsync();
-                return Ok(deleted);
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
             }
             catch (Exception)
             {
