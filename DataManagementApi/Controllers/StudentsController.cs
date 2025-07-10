@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DataManagementApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/students")]
     [ApiController]
     public class StudentsController : ControllerBase
     {
