@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DataManagementApi.Models
 {
     public class Permission
@@ -6,7 +8,9 @@ namespace DataManagementApi.Models
         public string Name { get; set; } = string.Empty; // e.g., "Create", "Read", "Update", "Delete"
         public string Module { get; set; } = string.Empty; // e.g., "Users", "Roles", "Products"
         public string? Description { get; set; }
+        public DateTime? DeletedAt { get; set; }
 
-        public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
+        [JsonIgnore]
+        public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
     }
 } 
