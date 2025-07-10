@@ -3,8 +3,8 @@ namespace DataManagementApi.Models
     public class Menu
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Path { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
         public string? Icon { get; set; }
         public int DisplayOrder { get; set; }
 

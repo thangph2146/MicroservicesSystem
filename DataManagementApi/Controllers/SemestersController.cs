@@ -103,7 +103,7 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Semesters/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutSemester(int id, CreateSemesterDto semesterDto)
+        public async Task<IActionResult> PutSemester(int id, UpdateSemesterDto semesterDto)
         {
             var semester = await _context.Semesters.FindAsync(id);
             if (semester == null || semester.DeletedAt != null)
@@ -111,13 +111,8 @@ namespace DataManagementApi.Controllers
                 return NotFound();
             }
 
-            if (id != semester.Id)
-            {
-                return BadRequest();
-            }
-
             // Validate academic year exists
-            var academicYearExists = await _context.AcademicYears.AnyAsync(ay => ay.Id == semesterDto.AcademicYearId);
+            var academicYearExists = await _context.AcademicYears.AnyAsync(ay => ay.Id == semesterDto.AcademicYearId && ay.DeletedAt == null);
             if (!academicYearExists)
             {
                 return BadRequest(new { message = "Năm học không tồn tại" });
@@ -133,9 +128,9 @@ namespace DataManagementApi.Controllers
 
             semester.Name = semesterDto.Name;
             semester.AcademicYearId = semesterDto.AcademicYearId;
+            semester.StartDate = semesterDto.StartDate;
+            semester.EndDate = semesterDto.EndDate;
             
-            _context.Entry(semester).State = EntityState.Modified;
-
             try
             {
                 await _context.SaveChangesAsync();
@@ -156,7 +151,9 @@ namespace DataManagementApi.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi cập nhật dữ liệu: {ex.Message}");
             }
 
-            return NoContent();
+            var updatedSemester = await _context.Semesters.Include(s => s.AcademicYear).FirstOrDefaultAsync(s => s.Id == id);
+
+            return Ok(updatedSemester);
         }
 
         // POST: api/Semesters

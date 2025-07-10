@@ -5,10 +5,10 @@ namespace DataManagementApi.Models
         public int Id { get; set; }
         
         // Dùng để liên kết với User trong Keycloak, không lưu password ở đây
-        public string KeycloakUserId { get; set; } 
+        public string KeycloakUserId { get; set; } = string.Empty; 
 
-        public string Name { get; set; }
-        public string Email { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
         public string? AvatarUrl { get; set; }
         
         // Thay cho status, dùng boolean rõ ràng hơn
