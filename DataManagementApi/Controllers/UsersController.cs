@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DataManagementApi.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/users")]
     [ApiController]
     public class UsersController : ControllerBase
     {
@@ -18,33 +18,55 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Users
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
+        public async Task<ActionResult<object>> GetUsers(
+            [FromQuery] int page = 1, 
+            [FromQuery] int limit = 10, 
+            [FromQuery] string search = "")
         {
             try
             {
-                var users = await _context.Users
+                var query = _context.Users
+                    .Where(u => u.DeletedAt == null)
                     .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
+                    .AsQueryable();
+                
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
+                }
+
+                var totalCount = await query.CountAsync();
+
+                var users = await query
+                    .OrderByDescending(u => u.CreatedAt)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .Select(u => new UserDto
+                    {
+                        Id = u.Id,
+                        KeycloakUserId = u.KeycloakUserId,
+                        Name = u.Name,
+                        Email = u.Email,
+                        AvatarUrl = u.AvatarUrl,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt,
+                        UpdatedAt = u.UpdatedAt,
+                        UserRoles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+                    })
                     .ToListAsync();
 
-                var userDtos = users.Select(u => new UserDto
+                return Ok(new 
                 {
-                    Id = u.Id,
-                    KeycloakUserId = u.KeycloakUserId,
-                    Name = u.Name,
-                    Email = u.Email,
-                    AvatarUrl = u.AvatarUrl,
-                    IsActive = u.IsActive,
-                    CreatedAt = u.CreatedAt,
-                    UpdatedAt = u.UpdatedAt,
-                    UserRoles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
-                }).ToList();
-
-                return userDtos;
+                    data = users,
+                    total = totalCount,
+                    page,
+                    limit
+                });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi truy xuất dữ liệu: {ex.Message}");
             }
         }
 
@@ -55,29 +77,29 @@ namespace DataManagementApi.Controllers
             try
             {
                 var user = await _context.Users
+                    .Where(u => u.Id == id && u.DeletedAt == null)
                     .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
-                    .FirstOrDefaultAsync(u => u.Id == id);
+                    .Select(u => new UserDto
+                    {
+                        Id = u.Id,
+                        KeycloakUserId = u.KeycloakUserId,
+                        Name = u.Name,
+                        Email = u.Email,
+                        AvatarUrl = u.AvatarUrl,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt,
+                        UpdatedAt = u.UpdatedAt,
+                        UserRoles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+                    })
+                    .FirstOrDefaultAsync();
 
                 if (user == null)
                 {
                     return NotFound();
                 }
 
-                var userDto = new UserDto
-                {
-                    Id = user.Id,
-                    KeycloakUserId = user.KeycloakUserId,
-                    Name = user.Name,
-                    Email = user.Email,
-                    AvatarUrl = user.AvatarUrl,
-                    IsActive = user.IsActive,
-                    CreatedAt = user.CreatedAt,
-                    UpdatedAt = user.UpdatedAt,
-                    UserRoles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
-                };
-
-                return userDto;
+                return user;
             }
             catch (Exception)
             {
@@ -221,7 +243,7 @@ namespace DataManagementApi.Controllers
                     .Include(u => u.UserRoles)
                     .FirstOrDefaultAsync(u => u.Id == id);
 
-                if (user == null)
+                if (user == null || user.DeletedAt != null)
                 {
                     return NotFound(new { message = "Người dùng không tồn tại" });
                 }
@@ -297,45 +319,141 @@ namespace DataManagementApi.Controllers
                     new { message = "Lỗi cập nhật dữ liệu", details = ex.Message });
             }
         }
-
-
-        // DELETE: api/Users/5
-        // Endpoint này chỉ xóa user khỏi DB local, không xóa khỏi Keycloak.
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        
+        // SOFT DELETE: api/users/soft-delete/5
+        [HttpPost("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeleteUser(int id)
         {
-            try
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound();
+            if (user.DeletedAt != null) return BadRequest("Người dùng đã được xóa.");
+
+            user.DeletedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // GET: api/users/deleted
+        [HttpGet("deleted")]
+        public async Task<ActionResult<object>> GetDeletedUsers([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            var query = _context.Users
+                .Where(u => u.DeletedAt != null)
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
             {
-                var user = await _context.Users
-                    .Include(u => u.UserRoles)
-                    .FirstOrDefaultAsync(u => u.Id == id);
-                
-                if (user == null)
-                {
-                    return NotFound(new { message = "Người dùng không tồn tại" });
-                }
-
-                // Remove associated user roles first
-                if (user.UserRoles.Any())
-                {
-                    _context.UserRoles.RemoveRange(user.UserRoles);
-                }
-
-                _context.Users.Remove(user);
-                await _context.SaveChangesAsync();
-
-                return NoContent();
+                query = query.Where(u => u.Name.Contains(search) || u.Email.Contains(search));
             }
-            catch(Exception ex)
+
+            var totalCount = await query.CountAsync();
+
+            var users = await query
+                .OrderByDescending(u => u.DeletedAt)
+                .Skip((page - 1) * limit)
+                .Take(limit)
+                .Select(u => new UserDto 
+                {
+                    Id = u.Id,
+                    KeycloakUserId = u.KeycloakUserId,
+                    Name = u.Name,
+                    Email = u.Email,
+                    AvatarUrl = u.AvatarUrl,
+                    IsActive = u.IsActive,
+                    CreatedAt = u.CreatedAt,
+                    UpdatedAt = u.UpdatedAt,
+                    DeletedAt = u.DeletedAt, // Include DeletedAt for deleted view
+                    UserRoles = u.UserRoles.Select(ur => ur.Role.Name).ToList()
+                })
+                .ToListAsync();
+            
+            return Ok(new { data = users, total = totalCount, page, limit });
+        }
+
+
+        // BULK SOFT DELETE: api/users/bulk-soft-delete
+        [HttpPost("bulk-soft-delete")]
+        public async Task<IActionResult> BulkSoftDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+
+            var users = await _context.Users.Where(u => ids.Contains(u.Id) && u.DeletedAt == null).ToListAsync();
+            if (users.Count == 0) return NotFound("Không tìm thấy người dùng hợp lệ để xóa.");
+
+            foreach (var user in users)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, 
-                    new { message = "Lỗi khi xóa người dùng", details = ex.Message });
+                user.DeletedAt = DateTime.UtcNow;
             }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Đã xóa thành công {users.Count} người dùng."});
+        }
+        
+        // BULK RESTORE: api/users/bulk-restore
+        [HttpPost("bulk-restore")]
+        public async Task<IActionResult> BulkRestore([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+            
+            var users = await _context.Users.Where(u => ids.Contains(u.Id) && u.DeletedAt != null).ToListAsync();
+            if (users.Count == 0) return NotFound("Không tìm thấy người dùng hợp lệ để khôi phục.");
+            
+            foreach (var user in users)
+            {
+                user.DeletedAt = null; // Restore by setting DeletedAt to null
+            }
+            
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Đã khôi phục thành công {users.Count} người dùng."});
+        }
+
+        // BULK PERMANENT DELETE: api/users/bulk-permanent-delete
+        [HttpPost("bulk-permanent-delete")]
+        public async Task<IActionResult> BulkPermanentDelete([FromBody] List<int> ids)
+        {
+             if (ids == null || !ids.Any()) return BadRequest("Danh sách ID không hợp lệ.");
+
+            var users = await _context.Users
+                .Include(u => u.UserRoles)
+                .Where(u => ids.Contains(u.Id))
+                .ToListAsync();
+
+            if (users.Count == 0) return NotFound("Không tìm thấy người dùng hợp lệ để xóa vĩnh viễn.");
+
+             // Note: You should consider what to do in Keycloak as well. 
+             // This implementation only removes from the local DB.
+            _context.Users.RemoveRange(users);
+            
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Đã xóa vĩnh viễn {users.Count} người dùng." });
+        }
+
+
+        // This replaces the old DELETE endpoint and should be used with caution.
+        [HttpDelete("permanent-delete/{id}")]
+        public async Task<IActionResult> PermanentDeleteUser(int id)
+        {
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.Id == id);
+            
+            if (user == null)
+            {
+                return NotFound(new { message = "Người dùng không tồn tại" });
+            }
+
+             // Note: You should consider what to do in Keycloak as well.
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
         private bool UserExists(int id)
         {
-            return _context.Users.Any(e => e.Id == id);
+            return _context.Users.Any(e => e.Id == id && e.DeletedAt == null);
         }
     }
 } 
