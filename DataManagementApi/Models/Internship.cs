@@ -45,5 +45,7 @@ namespace DataManagementApi.Models
         public string? ReportUrl { get; set; }
         
         public double? Grade { get; set; }
+        
+        public DateTime? DeletedAt { get; set; }
     }
 }

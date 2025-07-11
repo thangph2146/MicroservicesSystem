@@ -5,22 +5,14 @@ namespace DataManagementApi.Models
     public class Partner
     {
         public int Id { get; set; }
-        
-        [Required(ErrorMessage = "Tên đối tác là bắt buộc")]
-        [StringLength(200, ErrorMessage = "Tên đối tác không được vượt quá 200 ký tự")]
-        public string Name { get; set; }
-        
-        [Required(ErrorMessage = "Địa chỉ là bắt buộc")]
-        [StringLength(500, ErrorMessage = "Địa chỉ không được vượt quá 500 ký tự")]
-        public string Address { get; set; }
-        
-        [Required(ErrorMessage = "Số điện thoại là bắt buộc")]
-        [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
-        public string PhoneNumber { get; set; }
-        
-        [Required(ErrorMessage = "Email là bắt buộc")]
-        [EmailAddress(ErrorMessage = "Email không hợp lệ")]
-        [StringLength(100, ErrorMessage = "Email không được vượt quá 100 ký tự")]
-        public string Email { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Address { get; set; } = string.Empty;
+        public string? Website { get; set; }
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string? ContactPerson { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime? DeletedAt { get; set; } // For soft delete
     }
-} 
+}

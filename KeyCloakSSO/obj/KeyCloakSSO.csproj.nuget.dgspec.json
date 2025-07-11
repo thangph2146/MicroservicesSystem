@@ -1,31 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "D:\\KeyCloakIS\\keycloaksso\\KeyCloakSSO.csproj": {}
+    "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\KeyCloakSSO.csproj": {}
   },
   "projects": {
-    "D:\\KeyCloakIS\\keycloaksso\\KeyCloakSSO.csproj": {
+    "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\KeyCloakSSO.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\KeyCloakIS\\keycloaksso\\KeyCloakSSO.csproj",
+        "projectUniqueName": "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\KeyCloakSSO.csproj",
         "projectName": "KeyCloakSSO",
-        "projectPath": "D:\\KeyCloakIS\\keycloaksso\\KeyCloakSSO.csproj",
+        "projectPath": "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\KeyCloakSSO.csproj",
         "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\KeyCloakIS\\keycloaksso\\obj\\",
+        "outputPath": "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -43,8 +37,7 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "9.0.200"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -74,7 +67,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.409/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

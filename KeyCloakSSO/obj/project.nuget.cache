@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Fl5InovCcWc=",
+  "dgSpecHash": "0cV5YIznb54=",
   "success": true,
-  "projectFilePath": "D:\\KeyCloakIS\\keycloaksso\\KeyCloakSSO.csproj",
+  "projectFilePath": "D:\\HUB\\MicroservicesSystem\\KeyCloakSSO\\KeyCloakSSO.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Admin\\.nuget\\packages\\microsoft.aspnetcore.authentication.openidconnect\\8.0.6\\microsoft.aspnetcore.authentication.openidconnect.8.0.6.nupkg.sha512",
     "C:\\Users\\Admin\\.nuget\\packages\\microsoft.identitymodel.abstractions\\7.1.2\\microsoft.identitymodel.abstractions.7.1.2.nupkg.sha512",

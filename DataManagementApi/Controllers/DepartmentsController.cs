@@ -18,15 +18,46 @@ namespace DataManagementApi.Controllers
 
         // GET: api/Departments
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Department>>> GetDepartments()
+        public async Task<ActionResult<object>> GetDepartments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
         {
             try
             {
-                // Chỉ lấy các department gốc (không có cha)
-                return await _context.Departments
-                    .Where(d => d.ParentDepartmentId == null)
-                    .Include(d => d.ChildDepartments)
+                IQueryable<Department> query = _context.Departments
+                    .Where(d => d.ParentDepartmentId == null && d.DeletedAt == null)
+                    .Include(d => d.ChildDepartments);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination - but for tree structure, we might want to return all for now
+                // since pagination with tree structure is complex
+                var departments = await query
+                    .OrderBy(d => d.Name)
                     .ToListAsync();
+
+                // Filter child departments to exclude deleted ones
+                foreach (var dept in departments)
+                {
+                    if (dept.ChildDepartments != null)
+                    {
+                        dept.ChildDepartments = dept.ChildDepartments.Where(cd => cd.DeletedAt == null).ToList();
+                    }
+                }
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
             }
             catch (Exception)
             {
@@ -42,6 +73,7 @@ namespace DataManagementApi.Controllers
             {
                 // Lấy tất cả departments dạng flat list
                 return await _context.Departments
+                    .Where(d => d.DeletedAt == null)
                     .OrderBy(d => d.Name)
                     .ToListAsync();
             }
@@ -52,7 +84,7 @@ namespace DataManagementApi.Controllers
         }
 
         // GET: api/Departments/5
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<Department>> GetDepartment(int id)
         {
             try
@@ -60,7 +92,7 @@ namespace DataManagementApi.Controllers
                 var department = await _context.Departments
                     .Include(d => d.ParentDepartment)
                     .Include(d => d.ChildDepartments)
-                    .FirstOrDefaultAsync(d => d.Id == id);
+                    .FirstOrDefaultAsync(d => d.Id == id && d.DeletedAt == null);
 
                 if (department == null)
                 {
@@ -77,14 +109,34 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Departments/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDepartment(int id, Department department)
+        public async Task<IActionResult> PutDepartment(int id, DepartmentUpdateDto departmentDto)
         {
-            if (id != department.Id)
+            var existingDepartment = await _context.Departments.FindAsync(id);
+
+            if (existingDepartment == null || existingDepartment.DeletedAt != null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(department).State = EntityState.Modified;
+            // Optional: Validate ParentDepartmentId if it's provided
+            if (departmentDto.ParentDepartmentId.HasValue)
+            {
+                // Prevent making a department a child of itself
+                if (departmentDto.ParentDepartmentId.Value == id)
+                {
+                    return BadRequest("Một đơn vị không thể là đơn vị con của chính nó.");
+                }
+
+                var parentExists = await _context.Departments.AnyAsync(d => d.Id == departmentDto.ParentDepartmentId.Value && d.DeletedAt == null);
+                if (!parentExists)
+                {
+                    return BadRequest("Đơn vị cha không tồn tại.");
+                }
+            }
+
+            existingDepartment.Name = departmentDto.Name;
+            existingDepartment.Code = departmentDto.Code;
+            existingDepartment.ParentDepartmentId = departmentDto.ParentDepartmentId;
 
             try
             {
@@ -126,9 +178,9 @@ namespace DataManagementApi.Controllers
             }
         }
 
-        // DELETE: api/Departments/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDepartment(int id)
+        // SOFT DELETE: api/Departments/soft-delete/5
+        [HttpPost("soft-delete/{id}")]
+        public async Task<IActionResult> SoftDeleteDepartment(int id)
         {
             try
             {
@@ -137,23 +189,187 @@ namespace DataManagementApi.Controllers
                 {
                     return NotFound();
                 }
-
-                // Cần xử lý logic xóa các khoa/phòng ban con nếu cần
-                // Ví dụ: không cho xóa nếu có đơn vị con
-                if (await _context.Departments.AnyAsync(d => d.ParentDepartmentId == id))
+                if (department.DeletedAt != null)
                 {
-                    return BadRequest("Không thể xóa đơn vị này vì có các đơn vị con.");
+                    return BadRequest("Đơn vị đã bị xóa mềm.");
                 }
-
-
-                _context.Departments.Remove(department);
+                department.DeletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
-
                 return NoContent();
             }
             catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa đơn vị");
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa mềm đơn vị");
+            }
+        }
+
+        // BULK SOFT DELETE: api/Departments/bulk-soft-delete
+        [HttpPost("bulk-soft-delete")]
+        public async Task<IActionResult> BulkSoftDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var departments = await _context.Departments.Where(d => ids.Contains(d.Id) && d.DeletedAt == null).ToListAsync();
+                if (departments.Count == 0)
+                    return NotFound("Không tìm thấy đơn vị nào để xóa mềm.");
+                foreach (var dept in departments)
+                {
+                    dept.DeletedAt = DateTime.UtcNow;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { softDeleted = departments.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa mềm nhiều đơn vị: {ex.Message}");
+            }
+        }
+
+        // PERMANENT DELETE: api/Departments/permanent-delete/5
+        [HttpDelete("permanent-delete/{id}")]
+        public async Task<IActionResult> PermanentDeleteDepartment(int id)
+        {
+            try
+            {
+                var department = await _context.Departments.FindAsync(id);
+                if (department == null)
+                {
+                    return NotFound();
+                }
+                _context.Departments.Remove(department);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi khi xóa vĩnh viễn đơn vị");
+            }
+        }
+
+        // BULK PERMANENT DELETE: api/Departments/bulk-permanent-delete
+        [HttpPost("bulk-permanent-delete")]
+        public async Task<IActionResult> BulkPermanentDelete([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var departments = await _context.Departments.Where(d => ids.Contains(d.Id)).ToListAsync();
+                if (departments.Count == 0)
+                    return NotFound("Không tìm thấy đơn vị nào để xóa vĩnh viễn.");
+                _context.Departments.RemoveRange(departments);
+                await _context.SaveChangesAsync();
+                return Ok(new { permanentlyDeleted = departments.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi xóa vĩnh viễn nhiều đơn vị: {ex.Message}");
+            }
+        }
+
+        // BULK RESTORE: api/Departments/bulk-restore
+        [HttpPost("bulk-restore")]
+        public async Task<IActionResult> BulkRestore([FromBody] List<int> ids)
+        {
+            if (ids == null || !ids.Any())
+                return BadRequest("Danh sách id không hợp lệ.");
+            try
+            {
+                var departments = await _context.Departments.Where(d => ids.Contains(d.Id) && d.DeletedAt != null).ToListAsync();
+                if (departments.Count == 0)
+                    return NotFound("Không tìm thấy đơn vị nào để khôi phục.");
+                foreach (var dept in departments)
+                {
+                    dept.DeletedAt = null;
+                }
+                await _context.SaveChangesAsync();
+                return Ok(new { restored = departments.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi khi khôi phục nhiều đơn vị: {ex.Message}");
+            }
+        }
+
+        // GET: api/Departments/list
+        [HttpGet("list")]
+        public async Task<ActionResult<object>> GetDepartmentList([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            try
+            {
+                var query = _context.Departments
+                    .Where(d => d.DeletedAt == null);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination
+                var departments = await query
+                    .OrderBy(d => d.Name)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .ToListAsync();
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
+            }
+        }
+
+        // GET: api/Departments/deleted
+        [HttpGet("deleted")]
+        public async Task<ActionResult<object>> GetDeletedDepartments([FromQuery] int page = 1, [FromQuery] int limit = 10, [FromQuery] string search = "")
+        {
+            try
+            {
+                var query = _context.Departments
+                    .Where(d => d.DeletedAt != null);
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(d => d.Name.Contains(search) || d.Code.Contains(search));
+                }
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply pagination
+                var departments = await query
+                    .OrderBy(d => d.Name)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .ToListAsync();
+
+                // Return paginated response format
+                return Ok(new
+                {
+                    data = departments,
+                    total = totalCount,
+                    page = page,
+                    limit = limit
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Lỗi truy xuất dữ liệu từ cơ sở dữ liệu");
             }
         }
 

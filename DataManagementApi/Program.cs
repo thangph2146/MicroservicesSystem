@@ -8,28 +8,27 @@ using DataManagementApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
-
 // Add services to the container.
 
 // Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Register DataSeeder
-builder.Services.AddScoped<DataSeeder>();
+var myAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder
-                .AllowAnyOrigin()
-                .AllowAnyMethod()
-                .AllowAnyHeader();
-        });
+    options.AddPolicy(name: myAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins("http://localhost:5500", "http://localhost:5173", "http://localhost:5174")
+                                .AllowAnyHeader()
+                                .AllowAnyMethod();
+                      });
 });
+
+// Register DataSeeder
+builder.Services.AddScoped<DataSeeder>();
 
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
@@ -125,14 +124,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// CORS phải được đặt trước Authentication và Authorization
-app.UseCors("AllowAll");
+// app.UseHttpsRedirection(); // Tạm thời tắt HTTPS redirection cho development để tránh conflict với CORS
 
-// Tạm thời tắt HTTPS redirection cho development để tránh conflict với CORS
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+app.UseCors(myAllowSpecificOrigins);
 
 app.UseAuthentication();
 app.UseAuthorization();

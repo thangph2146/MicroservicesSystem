@@ -1,12 +1,16 @@
+using System.Text.Json.Serialization;
+
 namespace DataManagementApi.Models
 {
     public class Permission
     {
         public int Id { get; set; }
-        public string Name { get; set; } // Ví dụ: "users:create", "users:read"
+        public string Name { get; set; } = string.Empty; // e.g., "Create", "Read", "Update", "Delete"
+        public string Module { get; set; } = string.Empty; // e.g., "Users", "Roles", "Products"
         public string? Description { get; set; }
-        public string Module { get; set; } // Ví dụ: "UserManagement", "Academic"
+        public DateTime? DeletedAt { get; set; }
 
-        public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
+        [JsonIgnore]
+        public virtual ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
     }
 } 

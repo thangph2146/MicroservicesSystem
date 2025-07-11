@@ -9,47 +9,47 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = KeyCloakSSO
 build_property.RootNamespace = KeyCloakSSO
-build_property.ProjectDir = d:\HUB\MicroservicesSystem\KeyCloakSSO\
+build_property.ProjectDir = D:\HUB\MicroservicesSystem\KeyCloakSSO\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 8.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = d:\HUB\MicroservicesSystem\KeyCloakSSO
+build_property.MSBuildProjectDirectory = D:\HUB\MicroservicesSystem\KeyCloakSSO
 build_property._RazorSourceGeneratorDebug = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Dashboard.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Dashboard.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxEYXNoYm9hcmQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Index.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/LandingPage.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/LandingPage.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxMYW5kaW5nUGFnZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Privacy.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/Error.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/_ValidationScriptsPartial.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/_ViewImports.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/_ViewStart.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/_ViewStart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[d:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/_Layout.cshtml]
+[D:/HUB/MicroservicesSystem/KeyCloakSSO/Views/Shared/_Layout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = b-iwol8kxp8y

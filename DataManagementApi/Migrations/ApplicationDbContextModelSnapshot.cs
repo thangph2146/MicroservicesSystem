@@ -30,6 +30,12 @@ namespace DataManagementApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
@@ -38,6 +44,9 @@ namespace DataManagementApi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
@@ -56,6 +65,9 @@ namespace DataManagementApi.Migrations
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -81,6 +93,9 @@ namespace DataManagementApi.Migrations
 
                     b.Property<int>("AcademicYearId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<double?>("Grade")
                         .HasColumnType("float");
@@ -133,6 +148,9 @@ namespace DataManagementApi.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("int");
 
@@ -175,6 +193,9 @@ namespace DataManagementApi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
@@ -209,21 +230,33 @@ namespace DataManagementApi.Migrations
 
                     b.Property<string>("Address")
                         .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContactPerson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Website")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -238,6 +271,9 @@ namespace DataManagementApi.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -262,6 +298,9 @@ namespace DataManagementApi.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -316,9 +355,18 @@ namespace DataManagementApi.Migrations
                     b.Property<int>("AcademicYearId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -338,6 +386,12 @@ namespace DataManagementApi.Migrations
                     b.Property<DateTime>("DateOfBirth")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -356,6 +410,8 @@ namespace DataManagementApi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DepartmentId");
+
                     b.ToTable("Students");
                 });
 
@@ -370,8 +426,23 @@ namespace DataManagementApi.Migrations
                     b.Property<int>("AcademicYearId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ExaminerId")
+                        .HasColumnType("int");
+
                     b.Property<int>("SemesterId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("StudentId")
                         .HasColumnType("int");
@@ -379,17 +450,27 @@ namespace DataManagementApi.Migrations
                     b.Property<DateTime>("SubmissionDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("SupervisorId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AcademicYearId");
 
+                    b.HasIndex("ExaminerId");
+
                     b.HasIndex("SemesterId");
 
                     b.HasIndex("StudentId");
+
+                    b.HasIndex("SupervisorId");
 
                     b.ToTable("Theses");
                 });
@@ -406,6 +487,9 @@ namespace DataManagementApi.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -566,6 +650,15 @@ namespace DataManagementApi.Migrations
                     b.Navigation("AcademicYear");
                 });
 
+            modelBuilder.Entity("DataManagementApi.Models.Student", b =>
+                {
+                    b.HasOne("DataManagementApi.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("DataManagementApi.Models.Thesis", b =>
                 {
                     b.HasOne("DataManagementApi.Models.AcademicYear", "AcademicYear")
@@ -573,6 +666,11 @@ namespace DataManagementApi.Migrations
                         .HasForeignKey("AcademicYearId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("DataManagementApi.Models.Lecturer", "Examiner")
+                        .WithMany()
+                        .HasForeignKey("ExaminerId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("DataManagementApi.Models.Semester", "Semester")
                         .WithMany()
@@ -586,11 +684,21 @@ namespace DataManagementApi.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("DataManagementApi.Models.Lecturer", "Supervisor")
+                        .WithMany()
+                        .HasForeignKey("SupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("AcademicYear");
+
+                    b.Navigation("Examiner");
 
                     b.Navigation("Semester");
 
                     b.Navigation("Student");
+
+                    b.Navigation("Supervisor");
                 });
 
             modelBuilder.Entity("DataManagementApi.Models.UserRole", b =>
