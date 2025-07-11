@@ -24,6 +24,10 @@ namespace DataManagementApi.Controllers
             [FromQuery] string search = "")
         {
             var query = _context.Roles
+                .Include(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+                .Include(r => r.RoleMenus)
+                .ThenInclude(rm => rm.Menu)
                 .Where(r => r.DeletedAt == null)
                 .AsQueryable();
 
@@ -107,7 +111,7 @@ namespace DataManagementApi.Controllers
         
         // PUT: api/Roles/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutRole(int id, RoleDto roleDto)
+        public async Task<IActionResult> PutRole(int id, RoleUpdateDto roleDto)
         {
             if (id != roleDto.Id)
             {
@@ -123,20 +127,25 @@ namespace DataManagementApi.Controllers
                 return NotFound("Vai trò không tồn tại hoặc đã bị xóa.");
             }
             
-            existingRole.Name = roleDto.Name;
-            existingRole.Description = roleDto.Description;
+            if(roleDto.Name != null)
+                existingRole.Name = roleDto.Name;
+            if(roleDto.Description != null)
+                existingRole.Description = roleDto.Description;
 
-            // Update permissions
-            existingRole.RolePermissions.Clear();
-            if (roleDto.PermissionIds.Any())
+            // Update permissions only if the property is provided
+            if (roleDto.PermissionIds != null)
             {
-                var permissions = await _context.Permissions
-                    .Where(p => roleDto.PermissionIds.Contains(p.Id))
-                    .ToListAsync();
-
-                foreach (var permission in permissions)
+                existingRole.RolePermissions.Clear();
+                if (roleDto.PermissionIds.Any())
                 {
-                    existingRole.RolePermissions.Add(new RolePermission { PermissionId = permission.Id });
+                    var permissions = await _context.Permissions
+                        .Where(p => roleDto.PermissionIds.Contains(p.Id))
+                        .ToListAsync();
+
+                    foreach (var permission in permissions)
+                    {
+                        existingRole.RolePermissions.Add(new RolePermission { PermissionId = permission.Id });
+                    }
                 }
             }
             
