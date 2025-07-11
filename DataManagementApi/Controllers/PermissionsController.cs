@@ -84,6 +84,13 @@ namespace DataManagementApi.Controllers
 			}
 		}
 
+		// GET: api/permissions/all
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<Permission>>> GetAllPermissions()
+        {
+            return await _context.Permissions.Where(p => p.DeletedAt == null).OrderBy(p => p.Module).ThenBy(p => p.Name).ToListAsync();
+        }
+
 		// GET: api/permissions/modules
 		[HttpGet("modules")]
 		public async Task<ActionResult<IEnumerable<string>>> GetPermissionModules()

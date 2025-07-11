@@ -78,10 +78,27 @@ namespace DataManagementApi.Controllers
 
         // POST: api/Roles
         [HttpPost]
-        public async Task<ActionResult<Role>> PostRole(Role role)
+        public async Task<ActionResult<Role>> PostRole(RoleDto roleDto)
         {
-            // Ensure DeletedAt is not set on creation
-            role.DeletedAt = null;
+            var role = new Role
+            {
+                Name = roleDto.Name,
+                Description = roleDto.Description,
+                DeletedAt = null
+            };
+
+            if (roleDto.PermissionIds.Any())
+            {
+                var permissions = await _context.Permissions
+                    .Where(p => roleDto.PermissionIds.Contains(p.Id))
+                    .ToListAsync();
+                
+                foreach (var permission in permissions)
+                {
+                    role.RolePermissions.Add(new RolePermission { Permission = permission });
+                }
+            }
+
             _context.Roles.Add(role);
             await _context.SaveChangesAsync();
 
@@ -90,24 +107,39 @@ namespace DataManagementApi.Controllers
         
         // PUT: api/Roles/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutRole(int id, Role role)
+        public async Task<IActionResult> PutRole(int id, RoleDto roleDto)
         {
-            if (id != role.Id)
+            if (id != roleDto.Id)
             {
                 return BadRequest();
             }
             
-            var existingRole = await _context.Roles.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
+            var existingRole = await _context.Roles
+                .Include(r => r.RolePermissions)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (existingRole == null || existingRole.DeletedAt != null)
             {
                 return NotFound("Vai trò không tồn tại hoặc đã bị xóa.");
             }
             
-            // Preserve the original DeletedAt value
-            role.DeletedAt = existingRole.DeletedAt;
+            existingRole.Name = roleDto.Name;
+            existingRole.Description = roleDto.Description;
 
-            _context.Entry(role).State = EntityState.Modified;
+            // Update permissions
+            existingRole.RolePermissions.Clear();
+            if (roleDto.PermissionIds.Any())
+            {
+                var permissions = await _context.Permissions
+                    .Where(p => roleDto.PermissionIds.Contains(p.Id))
+                    .ToListAsync();
 
+                foreach (var permission in permissions)
+                {
+                    existingRole.RolePermissions.Add(new RolePermission { PermissionId = permission.Id });
+                }
+            }
+            
             try
             {
                 await _context.SaveChangesAsync();
