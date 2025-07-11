@@ -80,14 +80,32 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Students/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutStudent(int id, Student student)
+        public async Task<IActionResult> PutStudent(int id, StudentUpdateDto studentDto)
         {
-            if (id != student.Id)
+            var existingStudent = await _context.Students.FindAsync(id);
+
+            if (existingStudent == null || existingStudent.DeletedAt != null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(student).State = EntityState.Modified;
+            // Check if department exists if provided
+            if (studentDto.DepartmentId.HasValue)
+            {
+                var department = await _context.Departments.FindAsync(studentDto.DepartmentId.Value);
+                if (department == null)
+                {
+                    return BadRequest("Khoa không tồn tại.");
+                }
+            }
+
+            // Manually map properties
+            existingStudent.StudentCode = studentDto.StudentCode;
+            existingStudent.FullName = studentDto.FullName;
+            existingStudent.DateOfBirth = studentDto.DateOfBirth;
+            existingStudent.Email = studentDto.Email;
+            existingStudent.PhoneNumber = studentDto.PhoneNumber;
+            existingStudent.DepartmentId = studentDto.DepartmentId;
 
             try
             {

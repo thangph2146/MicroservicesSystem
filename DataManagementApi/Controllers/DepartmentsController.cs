@@ -109,14 +109,34 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Departments/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutDepartment(int id, Department department)
+        public async Task<IActionResult> PutDepartment(int id, DepartmentUpdateDto departmentDto)
         {
-            if (id != department.Id)
+            var existingDepartment = await _context.Departments.FindAsync(id);
+
+            if (existingDepartment == null || existingDepartment.DeletedAt != null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(department).State = EntityState.Modified;
+            // Optional: Validate ParentDepartmentId if it's provided
+            if (departmentDto.ParentDepartmentId.HasValue)
+            {
+                // Prevent making a department a child of itself
+                if (departmentDto.ParentDepartmentId.Value == id)
+                {
+                    return BadRequest("Một đơn vị không thể là đơn vị con của chính nó.");
+                }
+
+                var parentExists = await _context.Departments.AnyAsync(d => d.Id == departmentDto.ParentDepartmentId.Value && d.DeletedAt == null);
+                if (!parentExists)
+                {
+                    return BadRequest("Đơn vị cha không tồn tại.");
+                }
+            }
+
+            existingDepartment.Name = departmentDto.Name;
+            existingDepartment.Code = departmentDto.Code;
+            existingDepartment.ParentDepartmentId = departmentDto.ParentDepartmentId;
 
             try
             {

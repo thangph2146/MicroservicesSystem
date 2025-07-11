@@ -143,22 +143,23 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/Internships/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutInternship(int id, Internship internship)
+        public async Task<IActionResult> PutInternship(int id, InternshipUpdateDto updateDto)
         {
-            if (id != internship.Id)
-            {
-                return BadRequest();
-            }
-            
-            var existingInternship = await _context.Internships.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id);
+            var existingInternship = await _context.Internships.FindAsync(id);
+
             if (existingInternship == null || existingInternship.DeletedAt != null)
             {
                 return NotFound("Kỳ thực tập không tồn tại hoặc đã bị xóa.");
             }
             
-            internship.DeletedAt = existingInternship.DeletedAt;
+            // Update properties from DTO if they are provided
+            if (updateDto.StudentId.HasValue) existingInternship.StudentId = updateDto.StudentId.Value;
+            if (updateDto.PartnerId.HasValue) existingInternship.PartnerId = updateDto.PartnerId.Value;
+            if (updateDto.AcademicYearId.HasValue) existingInternship.AcademicYearId = updateDto.AcademicYearId.Value;
+            if (updateDto.SemesterId.HasValue) existingInternship.SemesterId = updateDto.SemesterId.Value;
+            if (updateDto.Grade.HasValue) existingInternship.Grade = updateDto.Grade.Value;
+            if (updateDto.ReportUrl != null) existingInternship.ReportUrl = updateDto.ReportUrl;
 
-            _context.Entry(internship).State = EntityState.Modified;
 
             try
             {

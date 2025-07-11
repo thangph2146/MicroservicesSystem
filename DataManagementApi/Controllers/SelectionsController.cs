@@ -147,19 +147,29 @@ namespace DataManagementApi.Controllers
         [HttpGet("permissions")]
         public async Task<IActionResult> GetPermissionOptions([FromQuery] string? search)
         {
-            var query = _context.Permissions.AsQueryable();
+            var query = _context.Permissions
+                .Where(p => p.DeletedAt == null)
+                .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
-                query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()) || p.Module.ToLower().Contains(search.ToLower()));
+                var lowerSearch = search.ToLower();
+                query = query.Where(p => p.Name.ToLower().Contains(lowerSearch) || p.Module.ToLower().Contains(lowerSearch));
             }
 
-            var permissions = await query
-                .Select(p => new { Id = p.Id, Name = p.Module + "." + p.Name })
-                .Take(100)
-                .ToListAsync();
+            var permissions = await query.ToListAsync();
 
-            return Ok(permissions);
+            var groupedPermissions = permissions
+                .GroupBy(p => p.Module)
+                .Select(g => new
+                {
+                    ModuleName = g.Key,
+                    Permissions = g.Select(p => new { p.Id, p.Name, Description = p.Module + "." + p.Name }).ToList()
+                })
+                .OrderBy(g => g.ModuleName)
+                .ToList();
+
+            return Ok(groupedPermissions);
         }
 
         [HttpGet("roles")]

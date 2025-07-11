@@ -96,40 +96,37 @@ namespace DataManagementApi.Controllers
 
         // PUT: api/AcademicYears/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAcademicYear(int id, AcademicYear academicYear)
+        public async Task<IActionResult> PutAcademicYear(int id, AcademicYearUpdateDto academicYearDto)
         {
-            if (id != academicYear.Id)
+            var existingYear = await _context.AcademicYears.FindAsync(id);
+            if (existingYear == null || existingYear.DeletedAt != null)
             {
-                return BadRequest();
-            }
-
-            // You can't update a deleted record
-            if (academicYear.DeletedAt != null)
-            {
-                 return BadRequest("Không thể cập nhật năm học đã bị xóa.");
+                 return NotFound("Không tìm thấy năm học");
             }
 
             // Validation
-            if (string.IsNullOrWhiteSpace(academicYear.Name))
+            if (string.IsNullOrWhiteSpace(academicYearDto.Name))
             {
                 return BadRequest("Tên niên khóa không được để trống");
             }
 
-            if (academicYear.StartDate >= academicYear.EndDate)
+            if (academicYearDto.StartDate >= academicYearDto.EndDate)
             {
                 return BadRequest("Ngày bắt đầu phải trước ngày kết thúc");
             }
 
             // Check if academic year name already exists (excluding current record)
-            var existingYear = await _context.AcademicYears
-                .FirstOrDefaultAsync(y => y.Name == academicYear.Name && y.Id != id && y.DeletedAt == null);
-            if (existingYear != null)
+            var duplicateYear = await _context.AcademicYears
+                .FirstOrDefaultAsync(y => y.Name == academicYearDto.Name && y.Id != id && y.DeletedAt == null);
+            if (duplicateYear != null)
             {
                 return BadRequest("Tên niên khóa đã tồn tại");
             }
 
-            academicYear.UpdatedAt = DateTime.UtcNow;
-            _context.Entry(academicYear).State = EntityState.Modified;
+            existingYear.Name = academicYearDto.Name;
+            existingYear.StartDate = academicYearDto.StartDate;
+            existingYear.EndDate = academicYearDto.EndDate;
+            existingYear.UpdatedAt = DateTime.UtcNow;
 
             try
             {
@@ -151,7 +148,7 @@ namespace DataManagementApi.Controllers
                  return StatusCode(StatusCodes.Status500InternalServerError, $"Lỗi cập nhật dữ liệu: {ex.Message}");
             }
 
-            return Ok(academicYear);
+            return Ok(existingYear);
         }
 
         // POST: api/AcademicYears
